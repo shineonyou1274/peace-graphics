@@ -99,6 +99,19 @@ def doctor():
     print(json.dumps({'python': py, 'node': node, 'playwright': pw, 'ffmpeg': ff, 'video': video, 'os': osn}, ensure_ascii=False))
 
 
+def tidy_say(t):
+    """AI 목소리는 마침표 없이 끝나면 마지막 글자를 삼키기 쉽다 — 끝에 마침표를 붙인다."""
+    t = t.strip()
+    return t if t[-1:] in '.!?。…~' else t + '.'
+
+
+def pad_tail(path, sec=0.45):
+    """끝 글자가 잘려 들리지 않게 끝에 짧은 무음을 붙이고(앞뒤 10ms 페이드) 다시 쓴다."""
+    tmp = path + '.tmp.wav'
+    subprocess.run([FF, '-y', '-v', 'error', '-i', path, '-af', f'afade=t=in:d=0.01,apad=pad_dur={sec}', tmp], check=True)
+    os.replace(tmp, path)
+
+
 def voice_setup():
     """CPU 용 PyTorch · torchaudio(같은 버전) · qwen-tts 를 깔고 0.6B 목소리 복제 모델을 받아 둔다."""
     try:
@@ -293,6 +306,9 @@ elif cmd == 'voice':
         ref = os.path.join(work, 'voice', '_sample.wav')
         subprocess.run([FF, '-y', '-v', 'error', '-i', os.path.abspath(sample), '-ac', '1', '-ar', '24000', ref], check=True)
         rw, rsr = sf.read(ref, dtype='float32')
+        tail = rw[-int(rsr * 0.15):] if len(rw) > rsr else rw
+        if len(tail) and float(np.sqrt(np.mean(tail ** 2))) > 0.02:
+            print('⚠ 샘플이 말하는 도중에 끝난 것 같아요(마지막 글자가 씹혔을 수 있음). 마지막 "…요/…다" 까지 말하고 1초 쉰 뒤 멈춰 다시 녹음하면 목소리 끝도 또렷해져요.')
         torch.set_num_threads(os.cpu_count() or 4)
         print(f'목소리 모델 불러오는 중… ({VOICE_MODEL} · CPU)')
         tts = Qwen3TTSModel.from_pretrained(VOICE_MODEL, device_map='cpu', dtype=torch.float32)
@@ -302,9 +318,10 @@ elif cmd == 'voice':
             if not say or (only and str(i + 1) not in only.split(',')):
                 continue
             t0 = time.time()
-            wavs, sr = tts.generate_voice_clone(text=say, language='Korean', ref_audio=(rw, rsr), ref_text=stext, x_vector_only_mode=False, max_new_tokens=2048)
+            wavs, sr = tts.generate_voice_clone(text=tidy_say(say), language='Korean', ref_audio=(rw, rsr), ref_text=stext, x_vector_only_mode=False, max_new_tokens=2048)
             out = os.path.join('voice', f'{i + 1:02d}.wav')
             sf.write(os.path.join(work, out), np.asarray(wavs[0], dtype='float32'), sr)
+            pad_tail(os.path.join(work, out))
             sc['voice'] = out; sc.pop('voiceData', None); sc.pop('voiceDur', None)
             print(f'  장면 {i + 1:02d} → {out} ({audio_len(os.path.join(work, out)):.1f}초 · {time.time() - t0:.0f}초 걸림)')
             with open(lp, 'w', encoding='utf-8') as f:
@@ -327,7 +344,7 @@ elif cmd == 'voice':
             continue
         out = os.path.join('voice', f'{i + 1:02d}.wav')
         try:
-            a, st = c.predict(handle_file(os.path.abspath(sample)), stext, say, 'Korean', False, val('--size') or '1.7B', api_name='/generate_voice_clone')
+            a, st = c.predict(handle_file(os.path.abspath(sample)), stext, tidy_say(say), 'Korean', False, val('--size') or '1.7B', api_name='/generate_voice_clone')
         except Exception as e:
             msg = str(e)
             if 'quota' in msg.lower():
@@ -336,6 +353,7 @@ elif cmd == 'voice':
         if not a:
             sys.exit(f'장면 {i + 1}: {st}')
         shutil.copy(a, os.path.join(work, out))
+        pad_tail(os.path.join(work, out))
         sc['voice'] = out
         sc.pop('voiceData', None); sc.pop('voiceDur', None)
         print(f'  장면 {i + 1:02d} → {out} ({audio_len(os.path.join(work, out)):.1f}초)')

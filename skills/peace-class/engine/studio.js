@@ -221,7 +221,7 @@
     let rec = null, sample = null;
     const sst = h('span', { class: 'vst' }, '');
     const sBtn = h('button', { class: 'pill', onclick: async () => {
-      if (rec) return rec.stop();
+      if (rec) { if (rec.state === 'recording' && !sBtn.dataset.ending) { sBtn.dataset.ending = 1; sBtn.textContent = '마무리 중…'; setTimeout(() => { delete sBtn.dataset.ending; rec && rec.stop(); }, 700); } return; }   // 끝 글자가 씹히지 않게 0.7초 더
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const chunks = [];
         rec = new MediaRecorder(stream); rec.ondataavailable = ev => chunks.push(ev.data);
@@ -266,7 +266,7 @@
       h('h4', {}, '1 · 내 목소리 샘플 (한 번만)'),
       h('p', { class: 'sample' }, SAMPLE_TEXT),
       h('div', { class: 'pair' }, sBtn, playS, saveS, sst),
-      h('p', { class: 'hint' }, '조용한 곳에서, 평소 수업하는 말투로 읽으세요. 샘플은 다음에도 계속 쓸 수 있게 저장해 두세요.'),
+      h('p', { class: 'hint' }, '조용한 곳에서, 평소 수업하는 말투로 읽으세요. 마지막 "…요" "…다" 까지 또렷하게 말하고 1초 쉰 뒤 멈추세요(끝 글자가 씹히면 AI 목소리도 끝이 잘려요). 샘플은 저장해 두면 계속 쓸 수 있어요.'),
       h('h4', {}, '2 · 장면마다 읽을 대본'),
       lines, h('button', { class: 'pill', onclick: e => copy(allText(), e.target) }, '대본 모두 복사'),
       h('h4', {}, '3 · Qwen 에서 만들기 (장면마다 되풀이)'),
@@ -290,7 +290,7 @@
     const takeBlob = async blob => { if (await voiceFromBlob(sc, blob)) { st.textContent = `녹음 ${sc.voiceDur.toFixed(1)}초 ✓`; changed(true); } else alert('이 소리 파일을 읽지 못했어요. mp3 · wav · m4a 로 다시 넣어 주세요.'); };
     const recBtn = h('button', { onclick: async e => {
       e.stopPropagation();
-      if (rec) { rec.stop(); return; }
+      if (rec) { if (rec.state === 'recording' && !recBtn.dataset.ending) { recBtn.dataset.ending = 1; recBtn.textContent = '마무리 중…'; setTimeout(() => { delete recBtn.dataset.ending; rec && rec.stop(); }, 700); } return; }   // 끝 글자가 씹히지 않게 0.7초 더
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const chunks = [];
         rec = new MediaRecorder(stream); rec.ondataavailable = ev => chunks.push(ev.data);
@@ -424,7 +424,7 @@
       h('ul', {}, li('오른쪽 위 그림 중 마음에 드는 스타일을 누르세요(11가지).', '왼쪽 칸의 글을 고치면 미리보기에 바로 나와요. "+ 장면 더하기"로 장면을 늘려요.', '빨간 점검 상자가 나오면 글을 줄이거나 장면을 둘로 나누세요.')),
       h('h4', {}, '🎙 내 목소리 넣기'),
       h('ol', {}, li('장면 아래 "🎙 녹음"을 누르세요. 처음 한 번 "마이크 허용"을 물으면 허용을 누르세요.', '그 장면의 글을 읽고 "■ 멈추기". "▶ 듣기"로 확인하고, 마음에 안 들면 다시 녹음하면 덮어써요.', '말 길이만큼 장면이 저절로 늘고, 말하는 동안 배경음이 작아져요.')),
-      h('p', {}, '팁: 조용한 곳에서, 이어폰 마이크가 노트북 마이크보다 깨끗해요. 휴대폰 녹음 앱으로 녹음한 파일은 "파일" 버튼으로 넣어요. 장면 하나에 한 녹음이에요.'),
+      h('p', {}, '팁: 마지막 "…요" "…다" 까지 다 말하고 1초 쉰 다음 멈추세요(끝 글자가 씹히지 않게). 조용한 곳에서, 이어폰 마이크가 노트북 마이크보다 깨끗해요. 휴대폰 녹음 앱으로 녹음한 파일은 "파일" 버튼으로 넣어요. 장면 하나에 한 녹음이에요.'),
       h('p', {}, '🗣 장면마다 녹음하기 번거로우면: 위쪽 "🗣 내 목소리 AI" — 내 목소리 샘플 10초로 AI 가 대본을 읽어 줘요(무료 · 본인 목소리만).'),
       h('h4', {}, '📷 사진 넣기'),
       h('ol', {}, li('"+ 장면 더하기 → 사진"을 누르고 "📷 사진 넣기" (또는 사진을 복사해 그 칸을 누르고 Ctrl+V, 끌어다 놓기도 돼요).', '사진 위에서 짚을 곳을 누르면 번호가 생겨요. 번호마다 이름표(예: 엽록체)를 적으면, 영상에서 점이 차례로 짚고 이름표가 붙어요.', '옆에 나올 설명을 적어요. [[이렇게]] 묶은 말은 형광펜으로 칠해져요.')),

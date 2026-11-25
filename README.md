@@ -60,7 +60,7 @@ Claude 의 **motion-studio** 스킬은 글 · 문서 · 사진 · 영상을 받�
 ## 설치
 
 ### Claude 앱 (데스크톱 · 웹)
-1. [Releases](../../releases) 에서 `motion-studio-academy.skill` 을 받거나, 아래 "직접 묶기"로 만듭니다.
+1. **[motion-studio-academy.skill 받기](download/motion-studio-academy.skill)** → 파일 화면 오른쪽 위 다운로드 버튼(⬇)을 누릅니다.
 2. Claude → **설정 → 기능 → 스킬** 에서 파일을 올립니다.
 
 ### Claude Code

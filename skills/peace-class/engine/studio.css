@@ -56,7 +56,7 @@ textarea { resize: vertical; }
 .add button { border: 1px solid var(--s-line); background: #fff; border-radius: 999px; padding: 4px 11px; cursor: pointer; }
 .add button:hover { border-color: var(--s-acc); color: var(--s-acc); }
 
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
 .thumb { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border: 2px solid transparent; background: var(--s-card); border-radius: 12px; padding: 6px 6px 8px; cursor: pointer; box-shadow: 0 1px 0 var(--s-line); }
 .thumb.on { border-color: var(--s-acc); box-shadow: 0 0 0 3px rgba(31,111,235,.15); }
 .thumb b { font-size: 14px; padding: 4px 4px 0; }

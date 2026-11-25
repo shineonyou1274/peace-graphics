@@ -29,7 +29,7 @@ SKILL = os.path.dirname(HERE)
 ENG = os.path.join(SKILL, 'engine')
 FONT_SRC = os.path.join(SKILL, 'assets', 'fonts')
 FF = os.environ.get('FFMPEG', 'ffmpeg')
-FONTS = ['kr-500', 'kr-900', 'pen', 'anton']   # Pretendard · Nanum Pen Script · Anton (모두 OFL)
+FONTS = ['kr-500', 'kr-900', 'pen', 'anton', 'serif', 'pop', 'round']   # Pretendard · Nanum Pen Script · Anton · 나눔명조 ExtraBold · Black Han Sans · Jua (모두 OFL)
 FIXED = '개념흔한실수바르게vsPEACECLASS0123456789/:·—+-.,()%→✕✓▶■●' + ''.join(chr(c) for c in range(32, 127))
 
 

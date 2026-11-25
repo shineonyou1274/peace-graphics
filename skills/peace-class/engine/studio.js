@@ -344,7 +344,7 @@
   }
   addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); toggle(); } });
 
-  // ---------- 스타일 갤러리: 지금 장면을 스타일 6가지로 ----------
+  // ---------- 스타일 갤러리: 지금 장면을 스타일 7가지로 ----------
   let gTimer = null;
   function refreshGallery() { clearTimeout(gTimer); gTimer = setTimeout(drawGallery, 120); }
   async function drawGallery() {

@@ -7,13 +7,15 @@
   // 스타일: 선생님이 눈으로 보고 고른다. light = 밝은 바탕(형광 칠한 글자를 흰색으로)
   const SUBJ = { '수학': '#d7ff00', '과학': '#3ee0ff', '국어': '#ff6b9a', '영어': '#ffb21e', '사회': '#9b7bff' };
   const SUBJ_DEEP = { '수학': '#3a7d00', '과학': '#0077b6', '국어': '#d6336c', '영어': '#d97706', '사회': '#6741d9' };
+  // 스타일마다 글꼴 · 강조 모양 · 점 · 장면 넘김 · 장식이 다르다(색만 바꾸지 않는다)
   const STYLES = [
-    { id: 'dark', name: '형광', desc: '어두운 바탕 · 과목색 형광', acc: s => SUBJ[s] || '#d7ff00' },
-    { id: 'light', name: '종이', desc: '밝은 바탕 · 밝은 교실 프로젝터', light: true, acc: s => SUBJ_DEEP[s] || '#3a7d00' },
-    { id: 'board', name: '칠판', desc: '초록 칠판 · 분필 노랑 · 손글씨 제목', acc: () => '#ffe066' },
-    { id: 'note', name: '공책', desc: '줄 공책 · 파란 펜 · 손글씨 제목', light: true, acc: () => '#2f5bd3' },
-    { id: 'grid', name: '모눈', desc: '모눈종이 · 수학 · 과학 그래프에', light: true, acc: s => SUBJ_DEEP[s] || '#0077b6' },
-    { id: 'night', name: '청사진', desc: '남색 설계도 · 노랑 강조', acc: () => '#ffd166' },
+    { id: 'dark', name: '형광', desc: '검정 · 형광 막대 · 빛나는 점', acc: s => SUBJ[s] || '#d7ff00', tr: 'rise' },
+    { id: 'light', name: '신문', desc: '명조 제목 · 빨간 밑줄 · 지면처럼 왼쪽 정렬', light: true, acc: () => '#c8102e', tr: 'page' },
+    { id: 'board', name: '칠판', desc: '분필 손글씨 · 분필 밑줄 · 지우개로 지움', acc: () => '#ffe066', tr: 'erase' },
+    { id: 'note', name: '공책', desc: '둥근 제목 · 형광 마커 · 포스트잇', light: true, acc: () => '#2f5bd3', tr: 'flip' },
+    { id: 'pop', name: '팝', desc: '노랑 · 굵은 테두리 · 통통 튀는 움직임', light: true, acc: () => '#ff3d8b', tr: 'pop', bounce: true },
+    { id: 'grid', name: '모눈', desc: '모눈종이 · 상자 강조 · 수학 · 과학 그래프', light: true, acc: s => SUBJ_DEEP[s] || '#0077b6', tr: 'fade' },
+    { id: 'night', name: '청사진', desc: '설계도 · 외곽선 제목 · 점선 상자 · 십자 점', acc: () => '#ffd166', tr: 'wipe' },
   ];
   const styleOf = L => STYLES.find(s => s.id === (L.style || L.theme)) || STYLES[0];
 
@@ -53,7 +55,7 @@
   };
   const plain = s => String(s).replace(/\$([^$]+)\$/g, '$1').replace(/\[\[|\]\]/g, '').replace(/\\hl\{([^}]*)\}/g, '$1');
   const maskLine = (parent, cls, str, isTex) => { const m = el('span', 'mask', parent); const inner = el('span', cls || '', m); if (isTex) katex.render(str, inner, KOPT); else rich(inner, str); return { m, inner }; };
-  const rise = (inner, k, dist = 105) => { const e = eo(k); inner.style.transform = `translateY(${(1 - e) * dist}%)`; };
+  const rise = (inner, k, dist = 105) => { const e = STY.bounce ? back(k) : eo(k); inner.style.transform = `translateY(${(1 - e) * dist}%)`; };
   const wipe = (e, k) => { e.style.clipPath = `inset(-20% ${((1 - k) * 100).toFixed(2)}% -20% -2%)`; };
 
   // ---------- 무대 ----------
@@ -72,6 +74,9 @@
   const ruleT = el('div', 'rule', frame); place(ruleT, S.x, top + 3.4 * U, S.w);
   const ruleB = el('div', 'rule', frame); place(ruleB, S.x, bot - 1.4 * U, S.w);
   const prog = el('div', 'prog', frame); place(prog, 0, H - .35 * U, 0);
+  // 스타일 장식: 귀퉁이 십자(청사진) · 분필 질감(칠판)
+  ['tl', 'tr', 'bl', 'br'].forEach(k => { const c = el('i', 'cm cm-' + k, frame); place(c, k[1] === 'l' ? S.x - 2.2 * U : S.x + S.w + .2 * U, k[0] === 't' ? top + 5.2 * U : bot - 4.6 * U); });
+  if (STY.id === 'board') stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-chalk" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G" result="d"/><feComposite in="d" in2="n" operator="arithmetic" k1="0" k2="1" k3="-0.18" k4="0.06"/></filter></svg>');
   const dot = el('div', 'dot', stage);
 
   // ================= 장면 틀 =================
@@ -79,7 +84,7 @@
 
   // 1) 제목: 점이 지나가며 제목을 밝힌다(마스크 리빌 · 빛 훑기), 손글씨 한 줄
   T.title = (sc, root) => {
-    const col = el('div', 'abs qa', root); place(col, S.x, S.y, S.w, S.h);
+    const col = el('div', 'abs qa c-title', root); place(col, S.x, S.y, S.w, S.h);
     css(col, { display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: R ? 'flex-start' : 'center', textAlign: R ? 'left' : 'center', gap: px(2.6 * U) });
     const kick = el('div', 'kicker', col, sc.kicker || [L.subject, L.unit].filter(Boolean).join(' · '));
     const ti = el('div', 'big', col); rich(ti, sc.title); css(ti, { fontSize: px((sc.size || (R ? 13 : 13.5)) * U) });
@@ -333,7 +338,7 @@
     const sides = [sc.left, sc.right];
     const gap = 6 * U;
     const cols = sides.map((s, i) => {
-      const c = el('div', 'abs qa', root);
+      const c = el('div', 'abs qa c-cmp c-cmp' + i, root);
       if (R) place(c, S.x, S.y + i * (S.h / 2 + gap / 2), S.w, S.h / 2 - gap / 2); else place(c, S.x + i * (S.w / 2 + gap / 2), S.y, S.w / 2 - gap / 2, S.h);
       css(c, { display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: px(2 * U), padding: R ? `0 ${2 * U}px` : `0 ${3 * U}px` });
       const h = el('div', 'big', c); rich(h, s.title); css(h, { fontSize: px((R ? 6.4 : 5.6) * U), color: i === 0 ? 'var(--ink)' : ACC });
@@ -447,7 +452,7 @@
 
   // 10) 마무리: 손글씨 한 줄, 점이 마침표가 되어 두 번 뛴다
   T.end = (sc, root) => {
-    const col = el('div', 'abs qa', root); place(col, S.x, S.y, S.w, S.h);
+    const col = el('div', 'abs qa c-end', root); place(col, S.x, S.y, S.w, S.h);
     css(col, { display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: R ? 'flex-start' : 'center', textAlign: R ? 'left' : 'center', gap: px(3 * U) });
     const tx = el('div', 'pen', col, sc.text); css(tx, { fontSize: px((sc.size || (R ? 10 : 9.5)) * U), color: 'var(--ink)' });
     const sub = sc.sub ? el('div', 'kicker', col, sc.sub) : null; if (sub) css(sub, { color: 'var(--dim)' });
@@ -574,7 +579,16 @@
       try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
       const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
-      s.root.style.opacity = kin * (1 - kout); s.root.style.transform = `translateY(${-kout * 2.4 * U}px)`; s.root.style.filter = kout > 0.01 ? `blur(${kout * 8}px)` : '';
+      const ti = 1 - kin, rs = s.root.style; rs.opacity = kin * (1 - kout); rs.filter = ''; rs.clipPath = ''; rs.transform = '';
+      switch (STY.tr) {
+        case 'page': rs.transform = `translateX(${(ti * 5 - kout * 5) * U}px)`; break;                    // 지면 넘기기
+        case 'erase': rs.filter = kout > 0.01 ? `blur(${kout * 14}px)` : ''; rs.opacity = kin * (1 - kout * kout); break;   // 지우개
+        case 'flip': rs.transform = `translateY(${(ti * 3 - kout * 6) * U}px) rotate(${-kout * 2}deg)`; break; // 공책 넘기기
+        case 'pop': rs.transform = `scale(${kin < 1 ? 0.9 + 0.1 * back(kin) : 1 + kout * 0.08})`; break;     // 통통
+        case 'fade': break;
+        case 'wipe': rs.clipPath = kout > 0 ? `inset(0 0 0 ${kout * 100}%)` : (kin < 1 ? `inset(0 ${ti * 100}% 0 0)` : ''); rs.opacity = 1; break; // 설계도 긋기
+        default: rs.transform = `translateY(${-kout * 2.4 * U}px)`; rs.filter = kout > 0.01 ? `blur(${kout * 8}px)` : '';
+      }
       labTR.innerHTML = `<b>${String(s.i + 1).padStart(2, '0')}</b> / ${String(scenes.length).padStart(2, '0')}`;
     }
     // 점
@@ -615,7 +629,7 @@
     return [...new Set(out)];
   };
 
-  const fontLoads = ['500 40px KR', '900 40px KR', '40px PEN', '40px ANTON', '40px KaTeX_Main', 'italic 40px KaTeX_Math', '40px KaTeX_Size1', '40px KaTeX_Size2', 'bold 40px KaTeX_Main', '40px KaTeX_AMS'];
+  const fontLoads = ['500 40px KR', '900 40px KR', '40px PEN', '40px ANTON', '800 40px SERIF', '40px POP', '40px ROUND', '40px KaTeX_Main', 'italic 40px KaTeX_Math', '40px KaTeX_Size1', '40px KaTeX_Size2', 'bold 40px KaTeX_Main', '40px KaTeX_AMS'];
   const READY = (async () => {
     const sample = TEXTS.join(' ') + '0123456789';
     await Promise.all(fontLoads.map(f => document.fonts.load(f, sample).catch(() => null)));

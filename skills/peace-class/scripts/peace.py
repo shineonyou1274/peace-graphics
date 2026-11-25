@@ -154,7 +154,8 @@ elif cmd == 'studio':
 elif cmd == 'blank':
     ex = examples()
     os.makedirs(os.path.dirname(work) or '.', exist_ok=True)
-    studio_html(ex[0]['lesson'], work)
+    first = next((e for e in ex if e['lesson'].get('title') == '광합성'), ex[0])   # 처음 여는 선생님께는 16:9 과학 예시
+    studio_html(first['lesson'], work)
 
 elif cmd == 'share':
     L = load_lesson()

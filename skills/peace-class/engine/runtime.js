@@ -595,6 +595,7 @@
   const placeRight = (e, y) => place(e, S.x + S.w - e.offsetWidth, y);
 
   // 겹침 · 넘침 점검: 장면마다 다 나온 순간을 보고, 안전 영역을 넘거나 글 덩어리가 겹치면 알린다
+  const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', end: '마무리' };
   const QA = () => {
     const out = [];
     for (const s of scenes) {
@@ -604,11 +605,11 @@
       // 글 덩어리 안의 실제 글자 상자로 넘침을 본다
       s.root.querySelectorAll('.qa *').forEach(c => {
         if (c.children.length || !c.textContent.trim()) return; const r = box(c); if (!r.w) return;
-        if (r.x < lim.x - 2 || r.y < lim.y - 2 || r.x + r.w > lim.x + lim.w + 2 || r.y + r.h > lim.y + lim.h + 2) out.push(`장면 ${s.i + 1}(${s.sc.type}): "${c.textContent.trim().slice(0, 20)}" 이(가) 안전 영역 밖`);
+        if (r.x < lim.x - 2 || r.y < lim.y - 2 || r.x + r.w > lim.x + lim.w + 2 || r.y + r.h > lim.y + lim.h + 2) out.push(`장면 ${s.i + 1}(${KN[s.sc.type] || s.sc.type}): "${c.textContent.trim().slice(0, 20)}" 이(가) 화면 밖으로 넘침`);
       });
       for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
         const a = blocks[i].b, b = blocks[j].b, ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-        if (ox > 4 && oy > 4 && (blocks[i].e.textContent.trim() && blocks[j].e.textContent.trim())) out.push(`장면 ${s.i + 1}(${s.sc.type}): 글 덩어리 두 개가 겹침 — "${blocks[i].e.textContent.trim().slice(0, 14)}" / "${blocks[j].e.textContent.trim().slice(0, 14)}"`);
+        if (ox > 4 && oy > 4 && (blocks[i].e.textContent.trim() && blocks[j].e.textContent.trim())) out.push(`장면 ${s.i + 1}(${KN[s.sc.type] || s.sc.type}): 글 덩어리 두 개가 겹침 — "${blocks[i].e.textContent.trim().slice(0, 14)}" / "${blocks[j].e.textContent.trim().slice(0, 14)}"`);
       }
     }
     return [...new Set(out)];

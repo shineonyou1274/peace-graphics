@@ -11,7 +11,7 @@
   const STYLES = [
     { id: 'dark', name: '형광', desc: '검정 · 형광 막대 · 빛나는 점', acc: s => SUBJ[s] || '#d7ff00', tr: 'rise' },
     { id: 'light', name: '신문', desc: '명조 제목 · 빨간 밑줄 · 지면처럼 왼쪽 정렬', light: true, acc: () => '#c8102e', tr: 'page' },
-    { id: 'board', name: '칠판', desc: '분필 손글씨 · 분필 밑줄 · 지우개로 지움', acc: () => '#ffe066', tr: 'erase' },
+    { id: 'board', name: '칠판', desc: '굵은 분필 글씨 · 분필 결 · 빗금 칠 · 지우개 자국', acc: () => '#ffe066', tr: 'erase' },
     { id: 'note', name: '공책', desc: '둥근 제목 · 형광 마커 · 포스트잇', light: true, acc: () => '#2f5bd3', tr: 'flip' },
     { id: 'pop', name: '팝', desc: '노랑 · 굵은 테두리 · 통통 튀는 움직임', light: true, acc: () => '#ff3d8b', tr: 'pop', bounce: true },
     { id: 'grid', name: '모눈', desc: '모눈종이 · 상자 강조 · 수학 · 과학 그래프', light: true, acc: s => SUBJ_DEEP[s] || '#0077b6', tr: 'fade' },
@@ -76,7 +76,23 @@
   const prog = el('div', 'prog', frame); place(prog, 0, H - .35 * U, 0);
   // 스타일 장식: 귀퉁이 십자(청사진) · 분필 질감(칠판)
   ['tl', 'tr', 'bl', 'br'].forEach(k => { const c = el('i', 'cm cm-' + k, frame); place(c, k[1] === 'l' ? S.x - 2.2 * U : S.x + S.w + .2 * U, k[0] === 't' ? top + 5.2 * U : bot - 4.6 * U); });
-  if (STY.id === 'board') stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-chalk" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G" result="d"/><feComposite in="d" in2="n" operator="arithmetic" k1="0" k2="1" k3="-0.18" k4="0.06"/></filter></svg>');
+  if (STY.id === 'board') {
+    // 분필 글씨: 결 사이로 칠판이 비치고(구멍), 획 가장자리가 살짝 떨린다
+    stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-chalk" x="-4%" y="-12%" width="108%" height="124%">'
+      + '<feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="4" result="n"/>'
+      + '<feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2.6 0 0 0 2.05" result="holes"/>'
+      + '<feComposite in="SourceGraphic" in2="holes" operator="in" result="t"/>'
+      + '<feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="1" seed="9" result="w"/>'
+      + '<feDisplacementMap in="t" in2="w" scale="3.2" xChannelSelector="R" yChannelSelector="G"/></filter></svg>');
+    // 칠판 바탕: 분필 가루 · 지우개 자국 · 지워진 옛 글씨 자국 (늘 같은 자리 · 무작위 없음)
+    const smear = [[.18, .28, .34, .10, -8], [.62, .2, .42, .12, 6], [.34, .72, .5, .13, -4], [.8, .78, .3, .09, 10], [.5, .48, .62, .16, 2]]
+      .map(([x, y, w, h, r]) => `<ellipse cx="${x * W}" cy="${y * H}" rx="${w * W / 2}" ry="${h * H / 2}" transform="rotate(${r} ${x * W} ${y * H})" fill="#fff" opacity=".045" filter="url(#pc-blur)"/>`).join('');
+    const bg = el('div', 'chalkbg', null); stage.insertBefore(bg, stage.firstChild);
+    bg.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><filter id="pc-blur"><feGaussianBlur stdDeviation="${3 * U}"/></filter>`
+      + `<filter id="pc-dust" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="3"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -1.9 1.04"/></filter></defs>`
+      + `<rect width="${W}" height="${H}" filter="url(#pc-dust)" opacity=".3"/>${smear}`
+      + `<g stroke="#fff" stroke-width="${.9 * U}" stroke-linecap="round" fill="none" opacity=".035" filter="url(#pc-blur)"><path d="M${.08 * W} ${.9 * H} q ${.1 * W} ${-.05 * H} ${.22 * W} ${-.01 * H}"/><path d="M${.7 * W} ${.12 * H} q ${.08 * W} ${.04 * H} ${.2 * W} 0"/></g></svg>`;
+  }
   const dot = el('div', 'dot', stage);
 
   // ================= 장면 틀 =================
@@ -629,7 +645,7 @@
     return [...new Set(out)];
   };
 
-  const fontLoads = ['500 40px KR', '900 40px KR', '40px PEN', '40px ANTON', '800 40px SERIF', '40px POP', '40px ROUND', '40px KaTeX_Main', 'italic 40px KaTeX_Math', '40px KaTeX_Size1', '40px KaTeX_Size2', 'bold 40px KaTeX_Main', '40px KaTeX_AMS'];
+  const fontLoads = ['500 40px KR', '900 40px KR', '40px PEN', '40px ANTON', '800 40px SERIF', '40px POP', '40px ROUND', '700 40px CHALK', '40px KaTeX_Main', 'italic 40px KaTeX_Math', '40px KaTeX_Size1', '40px KaTeX_Size2', 'bold 40px KaTeX_Main', '40px KaTeX_AMS'];
   const READY = (async () => {
     const sample = TEXTS.join(' ') + '0123456789';
     await Promise.all(fontLoads.map(f => document.fonts.load(f, sample).catch(() => null)));

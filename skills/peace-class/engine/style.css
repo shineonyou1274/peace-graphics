@@ -6,6 +6,7 @@
 @font-face { font-family: 'SERIF'; font-weight: 800; src: url('../fonts/serif.woff2') format('woff2'); }
 @font-face { font-family: 'POP'; src: url('../fonts/pop.woff2') format('woff2'); }
 @font-face { font-family: 'ROUND'; src: url('../fonts/round.woff2') format('woff2'); }
+@font-face { font-family: 'CHALK'; font-weight: 700; src: url('../fonts/chalk.woff2') format('woff2'); }
 
 :root { --bg: #0f0f12; --ink: #f4f4f0; --dim: #8a8a90; --line: #2c2c33; --acc: #d7ff00; --bad: #ff4d5e; --u: 10.8px; }
 
@@ -90,17 +91,26 @@ svg { overflow: visible; }
 .pc-stage.theme-light .hl.on, .pc-stage.theme-light .hl.on * { color: var(--ink) !important; }
 .theme-light .dot { border-radius: 0; box-shadow: none; width: calc(var(--u) * 2); height: calc(var(--u) * 2); margin: calc(var(--u) * -1) 0 0 calc(var(--u) * -1); }
 
-/* 칠판: 모든 글이 분필 손글씨 · 분필 질감 · 동그라미 강조 · 분필 조각 점 */
-.theme-board, .theme-board .big, .theme-board .kicker, .theme-board .frame .lab { font-family: 'PEN', 'KR', cursive; font-weight: 400; }
-.theme-board .kicker { letter-spacing: .12em; font-size: calc(var(--u) * 3); text-transform: none; }
-.theme-board .textwrap { font-size: calc(var(--u) * 6.2) !important; line-height: 1.32 !important; }
-.theme-board .c-cmp div:not(.big) { font-size: calc(var(--u) * 4.2) !important; }
+/* 칠판: 굵은 분필 손글씨 · 분필 결(구멍 · 떨림) · 분필 가루 바탕 · 지우개 자국 · 나무 틀 · 빗금 칠 강조 */
+.theme-board { --bg: #24392f; --ink: #f2efe4; --dim: #b9c7bb; --line: rgba(242,239,228,.5);
+  background-image: radial-gradient(ellipse at 28% 18%, rgba(255,255,255,.06), transparent 55%), radial-gradient(ellipse at 85% 95%, rgba(0,0,0,.3), transparent 50%);
+  box-shadow: inset 0 0 0 calc(var(--u) * 1.1) #7a5532, inset 0 0 0 calc(var(--u) * 1.45) #4a321c, inset 0 0 calc(var(--u) * 7) rgba(0,0,0,.55); }
+.theme-board .chalkbg { position: absolute; inset: 0; pointer-events: none; }
+.theme-board, .theme-board .big, .theme-board .kicker, .theme-board .pen, .theme-board .frame .lab { font-family: 'CHALK', 'PEN', 'KR', cursive; font-weight: 700; }
+.theme-board .scene { text-shadow: 0 0 .07em rgba(255,255,255,.28); letter-spacing: -.025em; }
+.theme-board .big { letter-spacing: 0; }
+.theme-board .kicker { letter-spacing: .06em; font-size: calc(var(--u) * 2.9); text-transform: none; }
+.theme-board .textwrap { font-size: calc(var(--u) * 5.2) !important; line-height: 1.4 !important; }
+.theme-board .c-cmp div:not(.big) { font-size: calc(var(--u) * 3.7) !important; }
 .theme-board .scene > * { filter: url(#pc-chalk); }
-.theme-board .key .bar, .theme-board .hl::before { background: var(--acc); border-radius: 40% 60% 50% 45%; inset: auto -.06em -.02em -.06em; height: .1em; opacity: .95; rotate: -1deg; }
+.theme-board .katex, .theme-board .katex * { color: var(--ink); }
+.theme-board .key .bar, .theme-board .hl::before { background: repeating-linear-gradient(-58deg, var(--acc) 0 .05em, transparent .05em .12em); inset: .86em -.1em -.2em -.1em; border-radius: 0; opacity: .9; rotate: -1.2deg; }
 .pc-stage.theme-board .key.on, .pc-stage.theme-board .key.on .word { color: var(--acc); }
 .pc-stage.theme-board .hl.on, .pc-stage.theme-board .hl.on * { color: var(--acc) !important; }
-.theme-board .dot { border-radius: 30%; width: calc(var(--u) * 3.6); height: calc(var(--u) * 1.5); margin: calc(var(--u) * -.75) 0 0 calc(var(--u) * -1.8); background: #f3f1e7; box-shadow: 0 0 calc(var(--u) * .6) rgba(255,255,255,.5); }
-.theme-board .frame .rule { background: rgba(243,241,231,.14); height: 3px; }
+.theme-board .dot { border-radius: 35% 25% 40% 30%; width: calc(var(--u) * 3.8); height: calc(var(--u) * 1.6); margin: calc(var(--u) * -.8) 0 0 calc(var(--u) * -1.9); background: #f6f3ea; box-shadow: 0 0 calc(var(--u) * .9) rgba(255,255,255,.45), inset calc(var(--u) * -.5) 0 0 rgba(0,0,0,.12); }
+.theme-board .frame .rule { height: 3px; background: repeating-linear-gradient(90deg, rgba(242,239,228,.42) 0 22px, transparent 22px 27px, rgba(242,239,228,.25) 27px 60px, transparent 60px 64px); }
+.theme-board .frame .prog { background: var(--acc); opacity: .8; }
+.theme-board .c-cmp1 .big { color: #ff9fb6 !important; }
 
 /* 공책: 둥근 제목 · 노랑 형광 마커 · 포스트잇 비교 · 파란 잉크 점 */
 .theme-note .big { font-family: 'ROUND', 'KR', sans-serif; font-weight: 400; letter-spacing: 0; }

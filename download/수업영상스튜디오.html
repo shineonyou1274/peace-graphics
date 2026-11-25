@@ -663,7 +663,9 @@ textarea { resize: vertical; }
     const ly = sv('text', { x: X(clamp(0, x0, x1)) + 1.2 * U, y: P.y - 1.2 * U, class: 'tick', 'font-size': 2.8 * U, 'font-style': 'italic' }, svg); ly.textContent = 'y';
     const COLS = [ACC, 'var(--ink)', '#6fd3ff', '#ff8f6b'];
     const fns = (sc.fns || []).map((f, j) => {
-      const fn = new Function('x', `with (Math) { return (${f.f}); }`);
+      // 앞에 붙은 빼기(-(x-2)**2 · -x**2)는 자바스크립트가 못 읽으니 -1* 로 바꿔 읽는다 · ^ 도 거듭제곱으로
+      const src = String(f.f).replace(/\^/g, '**').replace(/(^|[(,=+\-*/]\s*)-(?=\s*[\w(.])/g, '$1-1*');
+      const fn = new Function('x', `with (Math) { return (${src}); }`);
       let d = '', pen = false; const N = 400;
       for (let i = 0; i <= N; i++) { const x = x0 + (x1 - x0) * i / N, y = fn(x); if (!isFinite(y) || y < y0 - (y1 - y0) || y > y1 + (y1 - y0)) { pen = false; continue; } d += (pen ? 'L' : 'M') + X(x).toFixed(1) + ' ' + Y(y).toFixed(1); pen = true; }
       const path = sv('path', { d, class: 'curve', stroke: f.color || COLS[j % 4], 'clip-path': `url(#${clipId})` }, svg);
@@ -1127,11 +1129,12 @@ textarea { resize: vertical; }
 
   // 그릴 수 없는 장면: 무엇이 빠졌는지 화면에 알린다
   T.oops = (sc, root, err) => {
+    const why = err && err.message || '빈 칸';
     const c = el('div', 'abs qa', root); place(c, S.x, S.y, S.w, S.h);
     css(c, { display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: px(2 * U), textAlign: 'center' });
     el('div', 'kicker', c, '이 장면을 그릴 수 없어요').style.color = BAD;
     const m = el('div', null, c, '빈 칸을 채워 주세요 · ' + (err && err.message || '')); css(m, { fontSize: px(2.6 * U), color: 'var(--dim)' });
-    return { dur: 2.5, hits: [], measure() { this.dotIn = this.dotOut = { x: S.x + S.w / 2, y: S.y + S.h * .7 }; }, update() {}, dotAt() { return this.dotIn; } };
+    return { oops: why, dur: 2.5, hits: [], measure() { this.dotIn = this.dotOut = { x: S.x + S.w / 2, y: S.y + S.h * .7 }; }, update() {}, dotAt() { return this.dotIn; } };
   };
 
   // ================= 짓기 =================
@@ -1220,6 +1223,7 @@ textarea { resize: vertical; }
   const QA = () => {
     const out = [];
     for (const s of scenes) {
+      if (s.oops) out.push(`장면 ${s.i + 1}(${KN[s.sc.type] || s.sc.type}): 그릴 수 없음 — ${s.oops}`);
       seek(s.t0 + s.dur - 0.5);
       const blocks = [...s.root.querySelectorAll('.qa')].map(e => ({ e, b: box(e) })).filter(o => o.b.w > 0);
       const lim = R ? S : { x: 2 * U, y: 7.5 * U, w: W - 4 * U, h: H - 15 * U };

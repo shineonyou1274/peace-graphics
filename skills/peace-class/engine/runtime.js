@@ -106,6 +106,25 @@
     bg.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><filter id="pc-fiber" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006 0.09" numOctaves="3" seed="11"/><feColorMatrix type="matrix" values="0 0 0 0 .55  0 0 0 0 .48  0 0 0 0 .38  0 0 0 -1.6 1.0"/></filter><rect width="${W}" height="${H}" filter="url(#pc-fiber)" opacity=".22"/>`
       + `<filter id="pc-wash"><feGaussianBlur stdDeviation="${6 * U}"/></filter><ellipse cx="${.86 * W}" cy="${.84 * H}" rx="${.22 * W}" ry="${.12 * H}" fill="#000" opacity=".05" filter="url(#pc-wash)"/></svg>`;
   }
+  // 픽셀 그림: 글자 지도(한 글자 = 한 칸)를 SVG 네모로
+  const SPR = {
+    coin: ['..YYYY..', '.YyyyyY.', 'YyYYYYyY', 'YyYyyYyY', 'YyYyyYyY', 'YyYYYYyY', '.YyyyyY.', '..YYYY..'],
+    star: ['...Y...', '...Y...', '...W...', 'YYWWWYY', '...W...', '...Y...', '...Y...'],
+    heart: ['.RR.RR.', 'RRRRRRR', 'RRRRRRR', '.RRRRR.', '..RRR..', '...R...'],
+    cloud: ['...WWW......', '..WWWWW.WW..', '.WWWWWWWWWW.', 'WWWWWWWWWWWW', '.wwwwwwwwww.'],
+    kid: ['..HHHH..', '.HHHHHH.', '.SSSSSS.', '.SKSSKS.', '..SSSS..', '.BBBBBB.', 'S.BBBB.S', '..L..L..'],
+  };
+  const PAL = { Y: '#ffec27', y: '#ffa300', R: '#ff004d', W: '#fff1e8', w: '#c2c3c7', H: '#5f3a1d', S: '#ffccaa', K: '#1d2b53', B: '#29adff', L: '#1d2b53' };
+  const sprite = (name, cell) => { const m = SPR[name], h = m.length, w = m[0].length; let r = ''; m.forEach((row, y) => { for (let x = 0; x < w;) { const c = row[x]; if (c === '.') { x++; continue; } let n = 1; while (row[x + n] === c) n++; r += `<rect x="${x * cell}" y="${y * cell}" width="${n * cell}" height="${cell}" fill="${PAL[c]}"/>`; x += n; } }); return `<svg width="${w * cell}" height="${h * cell}" shape-rendering="crispEdges">${r}</svg>`; };
+  let pix = null;
+  if (STY.id === 'pixel') {
+    const bg = el('div', 'pixbg', null); stage.insertBefore(bg, stage.firstChild);
+    const c = Math.round(U * 0.9);
+    const clouds = [[.08, .2, 1], [.66, .12, 1.4], [.4, .78, .8]].map(([x, y, k]) => { const e = el('div', 'abs spr', bg); e.innerHTML = sprite('cloud', Math.round(c * k)); e.style.opacity = .16; place(e, x * W, y * H); return { e, x: x * W, sp: 12 + k * 10 }; });
+    const stars = [[.15, .1], [.3, .28], [.52, .08], [.86, .3], [.92, .62], [.06, .58], [.74, .86], [.22, .9]].map(([x, y], i) => { const e = el('div', 'abs spr', bg); e.innerHTML = sprite('star', Math.round(c * .5)); place(e, x * W, y * H); return { e, i }; });
+    const kid = el('div', 'abs spr', stage); kid.innerHTML = sprite('kid', Math.round(c * .75)); kid.style.zIndex = 5;
+    pix = { clouds, stars, kid, y0: R ? S.y + S.h + 1.4 * U : H - 11.6 * U };
+  }
   let leak = null;
   if (STY.id === 'cinema') {
     // 예고편: 위아래 검은 띠 · 빛 번짐(시간에 따라 천천히 흐른다)
@@ -113,11 +132,31 @@
     const bh = R ? 9 * U : 6.5 * U; const bt = el('div', 'lbox', stage); place(bt, 0, 0, W, bh); const bb = el('div', 'lbox', stage); place(bb, 0, H - bh, W, bh);
   }
   const dot = el('div', 'dot', stage);
+  if (pix) dot.innerHTML = sprite('coin', Math.round(U * .42));
   // 박자마다 쾅: 배경음 박자(분위기마다 빠르기)에 맞춰 장면이 살짝 튄다
   const BPM = { calm: 84, bright: 100, serious: 70 }[L.mood || 'calm'] || 84, BT = 60 / BPM;
   const beatOn = L.beat === 'on' || (L.beat !== 'off' && !!STY.beat);
   const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
-  const stamp = (parent, text, cls = '') => { const e = el('div', 'stamp ' + cls, parent, text); return e; };
+  // 진짜 도장: 나무 도장이 내려와 꾹 누르고 올라가면, 붉은 인주 자국이 남는다
+  const mkStamp = (parent, text, cls = '') => {
+    const w = el('div', 'stampwrap', parent), imp = el('div', 'stamp ' + cls, w, text), tool = el('div', 'stamper', w);
+    return {
+      w, imp,
+      at(x, y) {
+        place(w, x, y); const iw = imp.offsetWidth || 10 * U, ih = 15 * U, bw = iw * 1.08, kr = Math.min(bw * .32, 4.2 * U);
+        tool.innerHTML = `<svg width="${bw}" height="${ih}" viewBox="0 0 ${bw} ${ih}"><defs><linearGradient id="wd" x1="0" x2="1"><stop offset="0" stop-color="#6b4423"/><stop offset=".45" stop-color="#a87445"/><stop offset="1" stop-color="#5a381c"/></linearGradient></defs>`
+          + `<ellipse cx="${bw / 2}" cy="${kr * 1.05}" rx="${kr}" ry="${kr}" fill="url(#wd)"/><rect x="${bw / 2 - kr * .42}" y="${kr * 1.6}" width="${kr * .84}" height="${ih * .42}" fill="url(#wd)"/>`
+          + `<rect x="0" y="${ih * .62}" width="${bw}" height="${ih * .3}" rx="${U * .6}" fill="url(#wd)"/><rect x="${bw * .02}" y="${ih * .92}" width="${bw * .96}" height="${ih * .08}" fill="${ACC}"/></svg>`;
+        css(tool, { width: px(bw), height: px(ih), marginLeft: px(-bw / 2), bottom: px(imp.offsetHeight * .02) });
+      },
+      upd(lt, tc, rot = -9) {   // tc = 찍히는 순간
+        const down = eio(p(lt, tc - 0.38, tc)), up = eio(p(lt, tc + 0.14, tc + 0.55)), sq = Math.sin(clamp(p(lt, tc - 0.03, tc + 0.14)) * Math.PI);
+        tool.style.opacity = lt > tc - 0.38 && lt < tc + 0.55 ? 1 - up : 0;
+        tool.style.transform = `translateY(${-(1 - down) * 18 * U - up * 16 * U}px) rotate(${rot * 0.3}deg) scaleY(${1 - 0.1 * sq})`;
+        const ki = clamp(p(lt, tc, tc + 0.06)); imp.style.opacity = ki; imp.style.transform = `rotate(${rot}deg) scale(${1.06 - 0.06 * ki})`;
+      },
+    };
+  };
 
   // ================= 장면 틀 =================
   const T = {};
@@ -131,18 +170,18 @@
     const sub = sc.sub ? el('div', 'pen', col, sc.sub) : null; if (sub) css(sub, { fontSize: px(6.2 * U) });
     TEXTS.push(kick.textContent, plain(sc.title)); if (sc.sub) TEXTS.push(sc.sub);
     let b; const dur = sc.dur || (sc.sub ? 4.6 : 3.6) + (STY.seal ? 0.6 : 0);
-    const seal = STY.seal ? stamp(root, (L.subject || '수업').slice(0, 2), 'seal') : null, tSeal = sub ? 2.7 : 1.7;
+    const seal = STY.seal ? mkStamp(root, (L.subject || '수업').slice(0, 2), 'seal') : null, tSeal = sub ? 2.8 : 1.8;
     return {
       dur, hits: [[0.1, 'pop'], [0.45, 'sweep'], ...(sub ? [[1.55, 'write']] : []), ...(seal ? [[tSeal, 'stamp']] : [])],
       measure() {
         b = box(ti); this.dotIn = { x: b.x - 2.5 * U, y: b.y + b.h * .52 }; this.dotOut = { x: b.x + b.w + 2.5 * U, y: b.y + b.h * .52 };
-        if (seal) { place(seal, Math.min(S.x + S.w - 8 * U, b.x + b.w + 5.5 * U), b.y + b.h - 8 * U); }
+        if (seal) seal.at(Math.min(S.x + S.w - 8 * U, b.x + b.w + 5.5 * U), b.y + b.h - 8 * U);
       },
       update(lt) {
         kick.style.opacity = eo(p(lt, 0.1, 0.6)); kick.style.letterSpacing = `${lerp(.9, .38, eo(p(lt, 0.1, 0.9)))}em`;
         wipe(ti, eio(p(lt, 0.45, 1.45)));
         if (sub) wipe(sub, p(lt, 1.55, 2.55));
-        if (seal) { const k = p(lt, tSeal - 0.12, tSeal + 0.1); seal.style.opacity = k > 0 ? 1 : 0; seal.style.transform = `rotate(-6deg) scale(${lerp(2.2, 1, eio(k))})`; }
+        if (seal) seal.upd(lt, tSeal, -5);
       },
       dotAt(lt) { const k = eio(p(lt, 0.45, 1.45)); return { x: lerp(this.dotIn.x, this.dotOut.x, k), y: this.dotIn.y, s: back(p(lt, 0.05, 0.4)) }; },
     };
@@ -444,7 +483,7 @@
     const chk = sv('path', { class: 'curve', stroke: ACC, 'stroke-width': 12 }, svg);
     const tS = 1.3, tX = 1.75, tR = 2.6, tOk = 3.25, tW = 3.9;
     const dur = sc.dur || (why ? tW + 2.8 : tOk + 2.0);
-    const stp = STY.stamp ? stamp(root, sc.stamp || '정답') : null, tSt = tOk + 0.45;
+    const stp = STY.stamp || sc.stamp ? mkStamp(root, sc.stamp || '정답') : null, tSt = tOk + 0.6;
     let wb, rb, sx;
     return {
       dur, hits: [[0.2, 'rise'], [tS, 'strike'], [tX, 'wrong'], [tR, 'rewind'], [tOk, 'right'], ...(why ? [[tW, 'write']] : []), ...(stp ? [[tSt, 'stamp']] : [])],
@@ -454,7 +493,7 @@
         x1.setAttribute('d', `M${sx.x - s} ${sx.y - s}L${sx.x + s} ${sx.y + s}`); x2.setAttribute('d', `M${sx.x + s} ${sx.y - s}L${sx.x - s} ${sx.y + s}`);
         const c = { x: rb.x + rb.w + 4 * U, y: rb.y + rb.h * .5 }; chk.setAttribute('d', `M${c.x - s} ${c.y}L${c.x - s * .3} ${c.y + s * .8}L${c.x + s * 1.2} ${c.y - s}`);
         this.chk = { x: c.x + s * 1.2, y: c.y - s };
-        if (stp) { const sw = stp.offsetWidth || 14 * U, sh = stp.offsetHeight || 7 * U; let x = this.chk.x + 3 * U; if (x + sw > S.x + S.w) x = rb.x - sw - 3 * U; if (x < S.x) x = rb.x + rb.w - sw; place(stp, x, rb.y + rb.h / 2 - sh / 2 - (x === rb.x + rb.w - sw ? sh + U : 0)); }
+        if (stp) { const sw = stp.imp.offsetWidth || 14 * U, sh = stp.imp.offsetHeight || 7 * U; let x = this.chk.x + 3 * U; if (x + sw > S.x + S.w) x = rb.x - sw - 3 * U; if (x < S.x) x = rb.x + rb.w - sw; stp.at(x, rb.y + rb.h / 2 - sh / 2 - (x === rb.x + rb.w - sw ? sh + U : 0)); }
         this.dotIn = { x: wb.x - 3 * U, y: wb.y + wb.h * .55 }; this.dotOut = why ? (b => ({ x: b.x + b.w + 2 * U, y: b.y + b.h * .55 }))(box(why)) : this.chk;
         [strike, x1, x2, chk].forEach(q => { const l = q.getTotalLength(); q.dataset.l = l; q.setAttribute('stroke-dasharray', `${l} ${l}`); });
       },
@@ -464,7 +503,7 @@
         const kw = eo(p(lt, 0.2, 0.75)), kr = eio(p(lt, tR, tR + 0.55));
         css(wrong, { opacity: kw * (1 - kr), transform: `translateY(${(1 - kw) * 2 * U}px) translateX(${-kr * 14 * U}px) skewX(${kr * 18}deg)`, filter: `blur(${kr * 14}px)` });
         const ko = eo(p(lt, tOk - 0.25, tOk + 0.35)); right.style.opacity = ko; right.style.filter = `blur(${(1 - ko) * 10}px)`;
-        if (stp) { const k = p(lt, tSt - 0.12, tSt + 0.08); stp.style.opacity = k > 0 ? 1 : 0; stp.style.transform = `rotate(-11deg) scale(${lerp(2.4, 1, eio(k))})`; }
+        if (stp) stp.upd(lt, tSt, -11);
         const dash = (q, k) => q.setAttribute('stroke-dashoffset', q.dataset.l * (1 - k));
         dash(strike, eio(p(lt, tS, tS + 0.4))); strike.style.opacity = 1 - kr;
         const kx = p(lt, tX, tX + 0.3); dash(x1, eo(kx)); dash(x2, eo(p(lt, tX + 0.12, tX + 0.42))); x1.style.opacity = x2.style.opacity = 1 - kr;
@@ -573,7 +612,14 @@
     const at = (q, lt) => { const z = zq(q, lt); return { x: A.x + F.x + F.w * z.x / 100, y: A.y + F.y + F.h * z.y / 100 }; };
     return {
       dur, hits: [[0.15, 'sweep'], ...(cap ? [[tCap, 'words']] : []), ...(cap && cap.querySelector('.hl') ? [[tCap + 1.0, 'mark']] : []), ...pt.map(t => [t, 'pop'])],
-      async prepare() { if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; }); if (!img.naturalWidth) throw new Error('사진을 읽지 못했어요'); },
+      async prepare() {
+        if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; }); if (!img.naturalWidth) throw new Error('사진을 읽지 못했어요');
+        if (STY.id === 'pixel') {   // 픽셀 스타일: 사진도 큰 네모 칸으로(가로 72칸 · 색 단계 줄이기)
+          const cw = 72, ch = Math.max(1, Math.round(cw * img.naturalHeight / img.naturalWidth)), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+          const g = cv.getContext('2d'); g.drawImage(img, 0, 0, cw, ch); const d = g.getImageData(0, 0, cw, ch); for (let i = 0; i < d.data.length; i += 4) for (let j = 0; j < 3; j++) d.data[i + j] = Math.round(d.data[i + j] / 48) * 48; g.putImageData(d, 0, 0);
+          img.style.imageRendering = 'pixelated'; await new Promise(r => { img.onload = r; img.src = cv.toDataURL(); });
+        }
+      },
       measure() {
         layout();
         this.dotIn = { x: A.x + F.x - 2 * U, y: A.y + F.y + F.h * .5 };
@@ -777,6 +823,13 @@
     labBR.textContent = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
     prog.style.width = px(W * t / DUR);
     frame.style.opacity = eo(p(t, 0, 0.6)) * endFade;
+    if (pix) {   // 구름은 칸 단위로 흐르고, 별은 깜빡이고, 아이는 박자에 맞춰 걷다 뛴다
+      pix.clouds.forEach(c => { c.e.style.transform = `translateX(${Math.round(((t * c.sp) % (W * .4)) / (U * .9)) * U * .9}px)`; });
+      pix.stars.forEach(st => { st.e.style.opacity = (Math.floor(t * 3 + st.i * 1.7) % 4 === 0) ? .15 : .55; });
+      const bt = 60 / BPM, k = (t % bt) / bt, hop = Math.sin(k * Math.PI) * 1.6 * U * (t > bt * 4 && t < endHit ? 1 : 0.3);
+      place(pix.kid, S.x + ((t * 7 * U) % (S.w - 6 * U)), pix.y0 - Math.round(hop / (U * .7)) * U * .7); pix.kid.style.opacity = endFade;
+      dot.firstChild.style.transform = `scaleX(${[1, .6, .2, .6][Math.floor(t * 8) % 4]})`;
+    }
     if (leak) { leak.style.transform = `translateX(${Math.sin(t * 0.33) * W * 0.2}px)`; leak.style.opacity = (0.45 + 0.3 * Math.sin(t * 0.7 + 1)) * endFade; }
     stage.style.setProperty('--fade', endFade);
     stage.querySelectorAll('.scene').forEach(sc => { if (sc.style.display === 'block' && t > DUR - 0.5) sc.style.opacity = String(+sc.style.opacity * endFade); });

@@ -7,6 +7,7 @@
   python3 peace.py check  <작업 폴더>                 점검 · 정지 화면 시트 · 화면 글자 목록 · 소리   (Node + Playwright 가 있을 때)
   python3 peace.py video  <작업 폴더> [--draft]       mp4 (Node + Playwright + ffmpeg 가 있을 때)
   python3 peace.py blank  <출력.html>                 예시만 담은 빈 스튜디오 (배포용)
+  python3 peace.py doctor                             이 컴퓨터에서 무엇이 되나 · mp4 에 무엇을 깔아야 하나
 
 필요한 것: Python 3 표준 라이브러리만. fontTools + brotli 가 있으면 글꼴을 쓴 글자만 잘라 파일이 작아진다.
 """
@@ -28,6 +29,63 @@ FF = os.environ.get('FFMPEG', 'ffmpeg')
 FONTS = ['kr-500', 'kr-900', 'pen', 'anton']   # Pretendard · Nanum Pen Script · Anton (모두 OFL)
 FIXED = '개념흔한실수바르게vsPEACECLASS0123456789/:·—+-.,()%→✕✓▶■●' + ''.join(chr(c) for c in range(32, 127))
 
+
+
+def doctor():
+    """이 환경에서 되는 것 · mp4 를 굽는 데 빠진 것을 선생님 말로 알린다."""
+    import platform
+    osn = platform.system()
+    def has(cmd, args=('--version',)):
+        exe = shutil.which(cmd)
+        if not exe:
+            return None
+        try:
+            out = subprocess.run([exe, *args], capture_output=True, text=True, timeout=20)
+            return (out.stdout or out.stderr).strip().splitlines()[0][:60] if (out.stdout or out.stderr) else 'ok'
+        except Exception:
+            return 'ok'
+    py = sys.version.split()[0]
+    node = has('node')
+    ff = has(FF, ('-version',))
+    pw = None
+    if node:
+        js = ("let m;try{m=require('playwright')}catch(e){try{m=require(require('child_process').execSync('npm root -g').toString().trim()+'/playwright')}catch(e2){}}"
+              "if(!m){console.log('NO');process.exit(0)}m.chromium.launch({executablePath:process.env.CHROMIUM||undefined}).then(b=>{console.log('OK');return b.close()}).catch(e=>console.log('NOBROWSER'))")
+        try:
+            pw = subprocess.run(['node', '-e', js], capture_output=True, text=True, timeout=90).stdout.strip().splitlines()[-1]
+        except Exception:
+            pw = 'NO'
+    ok = lambda v: '✅' if v else '❌'
+    print('peace-class 환경 점검')
+    print(f'  {ok(True)} Python {py}            → 스튜디오 파일 · 수업용 파일 만들기 (이것만 있으면 됨)')
+    print(f'  {ok(node)} Node.js {node or "없음"}')
+    print(f'  {ok(pw == "OK")} Playwright + 크로미움 {"" if pw == "OK" else "(" + ("브라우저 없음" if pw == "NOBROWSER" else "없음") + ")"}')
+    print(f'  {ok(ff)} ffmpeg {ff or "없음"}')
+    video = bool(node and pw == 'OK' and ff)
+    print()
+    print('결과: ' + ('mp4 영상까지 만들 수 있어요.' if video else '스튜디오 파일 · 수업용 파일은 돼요. mp4 는 아래를 깔아야 해요(또는 윈도우 화면 녹화 Win+Alt+R).'))
+    if not video:
+        n_ = not node; f_ = not ff; p_ = pw != 'OK'
+        if osn == 'Windows':
+            need = (['winget install OpenJS.NodeJS.LTS'] if n_ else []) + (['winget install Gyan.FFmpeg'] if f_ else [])
+        elif osn == 'Darwin':
+            pk = ' '.join(x for x, w in (('node', n_), ('ffmpeg', f_)) if w)
+            need = ['brew install ' + pk] if pk else []
+        else:
+            pk = ' '.join(x for x, w in (('nodejs npm', n_), ('ffmpeg', f_)) if w)
+            need = ['sudo apt-get install -y ' + pk] if pk else []
+        if p_:
+            need += ['npm install -g playwright', 'npx playwright install' + (' --with-deps' if osn == 'Linux' else '') + ' chromium']
+        print('  깔 것 (한 번만 · 터미널에서 차례로):')
+        for x in need:
+            print('    ' + x)
+        print('  다 깔고 터미널을 새로 연 뒤 다시: python3 peace.py doctor')
+    print(json.dumps({'python': py, 'node': node, 'playwright': pw, 'ffmpeg': ff, 'video': video, 'os': osn}, ensure_ascii=False))
+
+
+if len(sys.argv) >= 2 and sys.argv[1] == 'doctor':
+    doctor()
+    sys.exit(0)
 if len(sys.argv) < 3:
     sys.exit(__doc__)
 cmd, work = sys.argv[1], os.path.abspath(sys.argv[2])

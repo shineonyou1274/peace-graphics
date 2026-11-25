@@ -29,6 +29,7 @@
     timeline: { name: '연표', tip: '선 위로 때와 일이 차례로', fields: [['title', '위 제목', 'text'], ['events', '때 · 일', 'pairs', ['때', '일']], ['scale', '연도 간격대로 띄우기', 'check']], make: () => ({ title: '연표', events: [['1392', '사건'], ['1446', '사건']] }) },
     compare: { name: '둘 비교', tip: '양쪽이 엇갈려 들어온다', fields: [['left.title', '왼쪽 제목', 'text'], ['left.points', '왼쪽 내용', 'list'], ['right.title', '오른쪽 제목', 'text'], ['right.points', '오른쪽 내용', 'list'], ['vs', '가운데 글 (비우면 vs)', 'text']], make: () => ({ left: { title: 'A', points: ['내용'] }, right: { title: 'B', points: ['내용'] } }) },
     process: { name: '과정', tip: '단계가 차례로 채워진다', fields: [['title', '위 제목', 'text'], ['steps', '단계', 'list']], make: () => ({ title: '과정', steps: ['첫째', '둘째', '셋째'] }) },
+    photo: { name: '사진', tip: '사진을 넣고 짚을 곳을 눌러 이름표 달기', fields: [['src', '사진 (사진 위를 누르면 그 자리에 이름표)', 'photo'], ['title', '위 작은 글', 'text'], ['caption', '설명 (형광 = [[…]])', 'area']], make: () => ({ src: '', title: '', caption: '', pins: [] }) },
     end: { name: '마무리', tip: '전할 것 한 문장 · 점이 마침표가 된다', fields: [['text', '마무리 한 마디 (손글씨)', 'text'], ['sub', '아래 작은 글', 'text']], make: () => ({ text: '마무리 한 마디', sub: '' }) },
   };
   const SUBJECTS = ['수학', '과학', '국어', '영어', '사회', '기타'];
@@ -49,7 +50,7 @@
     h('option', { value: '' }, '예시 불러오기'), ...(window.EXAMPLES || []).map((ex, i) => h('option', { value: i }, ex.name)));
   const bar = h('header', { class: 'top' },
     h('div', { class: 'brand' }, h('b', {}, '●'), ' 수업 영상 스튜디오'),
-    h('div', { class: 'acts' }, exSel,
+    h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showHelp() }, '처음이세요? 쓰는 법'), exSel,
       h('button', { class: 'ghost', onclick: () => fileIn.click() }, '시나리오 열기'),
       h('button', { class: 'ghost', onclick: saveJSON }, '시나리오 저장'),
       h('button', { class: 'main', onclick: exportHTML }, '수업용 파일 저장 ↓')), fileIn);
@@ -72,7 +73,9 @@
 
   // ---------- 왼쪽: 수업 정보 · 장면 목록 ----------
   function renderLeft() {
+    const keepScroll = left.scrollTop, keepWin = scrollY;
     left.innerHTML = '';
+    requestAnimationFrame(() => { left.scrollTop = keepScroll; scrollTo(0, keepWin); });
     const info = h('section', { class: 's-card info' }, h('h3', {}, '수업 정보'),
       row('제목', h('input', { value: L.title || '', oninput: e => { L.title = e.target.value; changed(); } })),
       h('div', { class: 'two' },
@@ -117,6 +120,7 @@
     if (kind === 'area') return row(label, h('textarea', { rows: 3, oninput: e => { setp(sc, path, e.target.value); changed(); } }, v || ''));
     if (kind === 'check') return h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: path === 'tex' ? v !== false : !!v, onchange: e => { setp(sc, path, path === 'tex' ? (e.target.checked ? '' : false) : (e.target.checked || '')); changed(); } }), label);
     if (kind === 'range') { const a = v || [-5, 5]; const n = (j, x) => h('input', { type: 'number', step: 'any', value: a[j], oninput: e => { const r = (getp(sc, path) || [-5, 5]).slice(); r[j] = +e.target.value; setp(sc, path, r); changed(); } }); return row(label, h('div', { class: 'pair' }, n(0), h('span', {}, '부터'), n(1), h('span', {}, '까지'))); }
+    if (kind === 'photo') return photoField(sc, label);
     if (kind === 'tri') {
       const on = !!v; const t = v || { fn: 0, at: 0 };
       return h('div', { class: 'row' }, h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: on, onchange: e => { setp(sc, path, e.target.checked ? { fn: 0, at: 0 } : ''); changed(); renderLeft(); } }), label),
@@ -143,6 +147,48 @@
     };
     draw();
     return row(label, wrap);
+  }
+
+  // 사진: 파일 · 붙여 넣기로 넣고, 사진 위를 누르면 그 자리에 이름표(pins)
+  const shrink = file => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const url = fr.result;
+      if (file.size < 600 * 1024) return res(url);   // 작은 사진은 그대로
+      const im = new Image();
+      im.onload = () => { const k = Math.min(1, 1600 / Math.max(im.width, im.height)); const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', 0.86)); };
+      im.onerror = () => rej(new Error('사진을 읽지 못했어요'));
+      im.src = url;
+    };
+    fr.onerror = () => rej(fr.error); fr.readAsDataURL(file);
+  });
+  function photoField(sc, label) {
+    const take = async f => { if (!f || !/^image\//.test(f.type)) return alert('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); changed(true); renderLeft(); } catch (e) { alert(e.message); } };
+    const fin = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: e => take(e.target.files[0]) });
+    const wrap = h('div', { class: 'photo-f' });
+    if (sc.src) {
+      const pic = h('div', { class: 'pic', title: '누르면 그 자리에 이름표가 생겨요', onclick: e => {
+        e.stopPropagation(); const r = img.getBoundingClientRect();
+        (sc.pins = sc.pins || []).push({ x: +((e.clientX - r.left) / r.width * 100).toFixed(1), y: +((e.clientY - r.top) / r.height * 100).toFixed(1), label: '' });
+        changed(true); renderLeft(); setTimeout(() => [...left.querySelectorAll('.s-scene.on .pins input')].at(-1)?.focus(), 0);
+      } });
+      const img = h('img', { src: sc.src, alt: '' }); pic.append(img);
+      (sc.pins || []).forEach((q, j) => pic.append(h('span', { class: 'mk', style: `left:${q.x}%;top:${q.y}%` }, String(j + 1))));
+      wrap.append(pic);
+      const list = h('div', { class: 'pins list' });
+      (sc.pins || []).forEach((q, j) => list.append(h('div', { class: 'li n1' }, h('input', { value: q.label || '', placeholder: `${j + 1}번 이름표 (예: 엽록체)`, oninput: e => { q.label = e.target.value; changed(); } }),
+        h('button', { title: '먼저 짚기', onclick: () => { if (j) { [sc.pins[j - 1], sc.pins[j]] = [sc.pins[j], sc.pins[j - 1]]; changed(true); renderLeft(); } } }, '↑'),
+        h('button', { title: '지우기', onclick: () => { sc.pins.splice(j, 1); changed(true); renderLeft(); } }, '✕'))));
+      if (!(sc.pins || []).length) list.append(h('small', { class: 'hint' }, '↑ 사진에서 짚을 곳을 눌러 보세요 (없어도 돼요)'));
+      wrap.append(list);
+    }
+    wrap.append(h('div', { class: 'pair' }, h('button', { class: 'plus', onclick: e => { e.stopPropagation(); fin.click(); } }, sc.src ? '사진 바꾸기' : '📷 사진 넣기'),
+      h('span', {}, '또는 사진을 복사해 이 칸을 누르고 Ctrl+V'), fin));
+    wrap.tabIndex = 0;
+    wrap.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/')); if (it) { e.preventDefault(); take(it.getAsFile()); } });
+    wrap.addEventListener('dragover', e => e.preventDefault());
+    wrap.addEventListener('drop', e => { e.preventDefault(); take(e.dataTransfer.files[0]); });
+    return h('div', { class: 'row' }, h('span', {}, label), wrap);
   }
 
   // 녹음: 마이크로 바로 녹음하거나 파일을 넣는다 → 장면에 담긴다
@@ -273,6 +319,30 @@
 <script>${esc(A('a-runtime'))}<\/script></body></html>`;
     download(slug() + '_수업용.html', html, 'text/html');
   }
+
+  // 쓰는 법: 처음 열면 한 번 저절로
+  function showHelp() {
+    const li = (...xs) => xs.map(x => h('li', {}, x));
+    const box = h('div', { class: 'help', onclick: e => { if (e.target === box) box.remove(); } }, h('div', {},
+      h('button', { class: 'x', onclick: () => box.remove() }, '닫기 ✕'),
+      h('h2', {}, '처음이세요? 3분 안내'),
+      h('h4', {}, '🖥 준비물 — 설치할 것 없어요'),
+      h('ul', {}, li('컴퓨터(윈도우 · 맥) + 크롬 · 엣지 · 웨일 중 하나. 이 파일을 그 브라우저로 열면 끝이에요.', '인터넷 · 로그인 · 프로그램 설치가 필요 없어요. 휴대폰 · 태블릿은 화면이 좁아 권하지 않아요.', '카카오톡 · 메일 미리보기 안에서 열면 안 돼요. 꼭 내려받은 뒤 브라우저로 여세요.')),
+      h('h4', {}, '1 · 스타일 → 2 · 글 고치기 → 3 · 미리보기'),
+      h('ul', {}, li('오른쪽 위 그림 6개 중 마음에 드는 스타일을 누르세요.', '왼쪽 칸의 글을 고치면 미리보기에 바로 나와요. "+ 장면 더하기"로 장면을 늘려요.', '빨간 점검 상자가 나오면 글을 줄이거나 장면을 둘로 나누세요.')),
+      h('h4', {}, '🎙 내 목소리 넣기'),
+      h('ol', {}, li('장면 아래 "🎙 녹음"을 누르세요. 처음 한 번 "마이크 허용"을 물으면 허용을 누르세요.', '그 장면의 글을 읽고 "■ 멈추기". "▶ 듣기"로 확인하고, 마음에 안 들면 다시 녹음하면 덮어써요.', '말 길이만큼 장면이 저절로 늘고, 말하는 동안 배경음이 작아져요.')),
+      h('p', {}, '팁: 조용한 곳에서, 이어폰 마이크가 노트북 마이크보다 깨끗해요. 휴대폰 녹음 앱으로 녹음한 파일은 "파일" 버튼으로 넣어요. 장면 하나에 한 녹음이에요.'),
+      h('h4', {}, '📷 사진 넣기'),
+      h('ol', {}, li('"+ 장면 더하기 → 사진"을 누르고 "📷 사진 넣기" (또는 사진을 복사해 그 칸을 누르고 Ctrl+V, 끌어다 놓기도 돼요).', '사진 위에서 짚을 곳을 누르면 번호가 생겨요. 번호마다 이름표(예: 엽록체)를 적으면, 영상에서 점이 차례로 짚고 이름표가 붙어요.', '옆에 나올 설명을 적어요. [[이렇게]] 묶은 말은 형광펜으로 칠해져요.')),
+      h('p', {}, '학생 얼굴은 동의를 받고, 교과서 · 인터넷 그림은 저작권을 확인하세요. 직접 찍은 사진이 가장 안전해요.'),
+      h('h4', {}, '💾 저장과 수업'),
+      h('ul', {}, li('"수업용 파일 저장" → 파일 하나. 수업 때 열고 스페이스로 재생, → ← 장면 넘기기, F 전체 화면.', '다른 선생님께는 그 파일을 그대로 보내면 돼요(목소리 · 사진도 안에 들어 있어요).', '"시나리오 저장"은 나중에 이어서 고칠 때 쓰는 파일이에요. 고치던 내용은 이 컴퓨터 이 브라우저에만 자동 보관돼요.')),
+      h('h4', {}, '🎞 mp4 영상이 꼭 필요할 때'),
+      h('ul', {}, li('윈도우: 수업용 파일을 열고 F(전체 화면) → Win + Alt + R 로 녹화 시작, 끝나면 다시 Win + Alt + R. 소리도 함께 녹화돼요(동영상 폴더 → 캡처).', '맥: 화면 기록(⌘ + Shift + 5)은 소리가 함께 녹화되지 않아요. Claude 에게 시나리오 파일을 주고 mp4 를 부탁하세요.'))));
+    document.body.append(box);
+  }
+  if (!store.get('peace-studio-helped')) { store.set('peace-studio-helped', '1'); setTimeout(showHelp, 400); }
 
   // 지난 작업이 있으면 알려 준다
   const draft = store.get('peace-studio-draft');

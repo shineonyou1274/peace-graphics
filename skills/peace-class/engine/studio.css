@@ -76,3 +76,16 @@ textarea { resize: vertical; }
 .s-qa ul { margin: 6px 0 0 18px; padding: 0; }
 @media (max-width: 900px) { .body { grid-template-columns: 1fr; } .left { position: static; max-height: none; } }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #151518; color: #fff; padding: 10px 18px; border-radius: 999px; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.photo-f { display: flex; flex-direction: column; gap: 6px; outline: none; }
+.photo-f .pic { position: relative; cursor: crosshair; border-radius: 8px; overflow: hidden; line-height: 0; border: 1px solid var(--s-line); }
+.photo-f .pic img { width: 100%; display: block; }
+.photo-f .mk { position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; background: #d7ff00; color: #111; font: 900 12px/22px 'KR', sans-serif; text-align: center; box-shadow: 0 0 0 2px #111; }
+.photo-f .hint { color: var(--s-dim); font-size: 12px; }
+.photo-f .pair span { white-space: normal; }
+.help { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.help > div { background: #fff; border-radius: 16px; max-width: 640px; max-height: 86vh; overflow: auto; padding: 22px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.help h2 { margin: 0 0 10px; font-size: 20px; font-weight: 900; }
+.help h4 { margin: 16px 0 6px; font-size: 15px; font-weight: 900; }
+.help p, .help li { font-size: 14px; line-height: 1.6; }
+.help ol, .help ul { padding-left: 20px; margin: 4px 0; }
+.help .x { float: right; border: none; background: #eee; border-radius: 999px; padding: 4px 12px; cursor: pointer; }

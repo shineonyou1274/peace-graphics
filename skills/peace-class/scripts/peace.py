@@ -59,6 +59,11 @@ def load_lesson():
             ext = os.path.splitext(p)[1].lower().lstrip('.')
             sc['voiceData'] = b64(read(p, 'rb'), {'mp3': 'audio/mpeg', 'm4a': 'audio/mp4', 'webm': 'audio/webm', 'ogg': 'audio/ogg'}.get(ext, 'audio/wav'))
             sc['voiceDur'] = round(audio_len(p), 2)
+        src = sc.get('src')   # 사진 경로 → 파일 안에 담기
+        if sc.get('type') == 'photo' and src and not src.startswith('data:'):
+            p = os.path.join(work, src)
+            ext = os.path.splitext(p)[1].lower().lstrip('.')
+            sc['src'] = b64(read(p, 'rb'), {'png': 'image/png', 'webp': 'image/webp', 'gif': 'image/gif', 'svg': 'image/svg+xml'}.get(ext, 'image/jpeg'))
     if 'theme' in L and 'style' not in L:
         L['style'] = L.pop('theme')
     return L

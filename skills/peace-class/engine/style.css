@@ -69,3 +69,9 @@ svg { overflow: visible; }
 /* 밝은 바탕: 형광 칠한 글자는 흰색 */
 .pc-light .key.on, .pc-light .key.on .word { color: #fff; }
 .pc-light .hl.on, .pc-light .hl.on * { color: #fff !important; }
+/* 사진 장면 */
+.photo .pin { position: absolute; width: 0; height: 0; opacity: 0; }
+.photo .pin .ring { position: absolute; left: 0; top: 0; width: calc(var(--u) * 4.2); height: calc(var(--u) * 4.2); border-radius: 50%; border: calc(var(--u) * .5) solid var(--acc); box-shadow: 0 0 0 calc(var(--u) * .3) rgba(0,0,0,.35), inset 0 0 0 calc(var(--u) * .3) rgba(0,0,0,.35); }
+.photo .pinlab { position: absolute; left: 0; top: calc(var(--u) * 1.6); white-space: nowrap; background: var(--acc); color: #111; font-weight: 900; font-size: calc(var(--u) * 2.6); padding: .15em .55em; border-radius: .4em; box-shadow: 0 .2em .6em rgba(0,0,0,.3); }
+.pc-light .photo .pinlab { color: #fff; }
+.theme-board .photo .pinlab, .theme-night .photo .pinlab { color: #111; }

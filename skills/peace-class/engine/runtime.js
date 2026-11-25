@@ -467,6 +467,74 @@
     };
   };
 
+  // 사진: 사진이 열리고 천천히 다가가며, 점이 짚는 곳마다 이름표가 붙는다
+  // sc.src(사진 · data URL 또는 경로) · sc.title(위 작은 글) · sc.caption(설명 · [[형광]]) · sc.pins[{x,y,label}](사진 위 % 자리)
+  T.photo = (sc, root) => {
+    if (!sc.src) throw new Error('사진을 넣어 주세요');
+    const pins = (sc.pins || []).filter(q => q && q.x != null && q.y != null);
+    const hasSide = !!(sc.title || sc.caption);
+    // 사진 칸: 16:9 는 왼쪽(글이 있으면 62%), 9:16 은 위
+    const A = R ? { x: S.x, y: S.y, w: S.w, h: hasSide ? S.h * .64 : S.h } : { x: S.x, y: S.y, w: hasSide ? S.w * .62 : S.w, h: S.h };
+    const box0 = el('div', 'abs photo', root); place(box0, A.x, A.y, A.w, A.h);
+    const zoom = el('div', 'abs', box0); const img = el('img', null, zoom); img.src = sc.src; img.alt = '';
+    css(img, { position: 'absolute', inset: '0', width: '100%', height: '100%', display: 'block' });
+    const pinEls = pins.map(q => { const g = el('div', 'pin', zoom); el('span', 'ring', g); const lb = q.label ? el('div', 'pinlab qa', g, q.label) : null; if (q.label) TEXTS.push(q.label); return { q, g, lb }; });
+    let side = null, kick = null, cap = null;
+    if (hasSide) {
+      side = el('div', 'abs qa', root);
+      if (R) place(side, S.x, A.y + A.h + 3 * U, S.w, S.h - A.h - 3 * U); else place(side, A.x + A.w + 4 * U, S.y, S.w - A.w - 4 * U, S.h);
+      css(side, { display: 'flex', flexDirection: 'column', justifyContent: R ? 'flex-start' : 'center', gap: px(2 * U) });
+      if (sc.title) { kick = el('div', 'kicker', side, sc.title); TEXTS.push(sc.title); }
+      if (sc.caption) { cap = el('div', 'textwrap', side); rich(cap, sc.caption); css(cap, { fontSize: px((R ? 5 : 3.6) * U), lineHeight: 1.5 }); TEXTS.push(plain(sc.caption)); }
+    }
+    const pt = pins.map((_, j) => 1.5 + j * 1.15);
+    const tCap = 1.0;
+    const dur = sc.dur || Math.max(4.5, (pt.length ? pt.at(-1) + 2.2 : 4.5));
+    let F = null, O = { x: 50, y: 50 };   // F = 사진이 실제로 놓인 자리(비율 유지), O = 다가가는 가운데
+    const zs = lt => 1 + 0.07 * eio(p(lt, 0.15, dur));
+    const zq = (q, lt) => { const k = zs(lt); return { x: O.x + (q.x - O.x) * k, y: O.y + (q.y - O.y) * k }; };   // 다가가도 짚은 곳을 따라간다
+    const layout = () => {
+      const nw = img.naturalWidth || 4, nh = img.naturalHeight || 3, k = Math.min(A.w / nw, A.h / nh), w = nw * k, h = nh * k;
+      F = { x: (A.w - w) / 2, y: (A.h - h) / 2, w, h };
+      place(zoom, F.x, F.y, w, h); css(zoom, { overflow: 'hidden', borderRadius: px(1.2 * U) });
+      // 다가가는 곳: 짚는 곳들의 가운데
+      if (pins.length) O = { x: pins.reduce((a, q) => a + q.x, 0) / pins.length, y: pins.reduce((a, q) => a + q.y, 0) / pins.length };
+      img.style.transformOrigin = `${O.x}% ${O.y}%`;
+    };
+    const at = (q, lt) => { const z = zq(q, lt); return { x: A.x + F.x + F.w * z.x / 100, y: A.y + F.y + F.h * z.y / 100 }; };
+    return {
+      dur, hits: [[0.15, 'sweep'], ...(cap ? [[tCap, 'words']] : []), ...(cap && cap.querySelector('.hl') ? [[tCap + 1.0, 'mark']] : []), ...pt.map(t => [t, 'pop'])],
+      async prepare() { if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; }); if (!img.naturalWidth) throw new Error('사진을 읽지 못했어요'); },
+      measure() {
+        layout();
+        this.dotIn = { x: A.x + F.x - 2 * U, y: A.y + F.y + F.h * .5 };
+        this.pts = pins.map(q => at(q, dur));
+        this.dotOut = this.pts.length ? this.pts.at(-1) : (cap ? (b => ({ x: b.x + b.w + 1.6 * U, y: b.y + b.h * .6 }))(box(cap)) : { x: A.x + F.x + F.w + 2 * U, y: A.y + F.y + F.h * .5 });
+      },
+      update(lt) {
+        const k = eio(p(lt, 0.15, 1.0));
+        zoom.style.clipPath = `inset(0 ${((1 - k) * 100).toFixed(2)}% 0 0 round ${1.2 * U}px)`;
+        img.style.transform = `scale(${zs(lt)})`;
+        if (kick) kick.style.opacity = eo(p(lt, 0.4, 0.9));
+        if (cap) { wipe(cap, eio(p(lt, tCap, tCap + 1.0))); cap.querySelectorAll('.hl').forEach((e, j) => { const k = eio(p(lt, tCap + 1.0 + j * 0.3, tCap + 1.4 + j * 0.3)); e.style.setProperty('--k', k); e.classList.toggle('on', k > .5); }); }
+        pinEls.forEach(({ q, g, lb }, j) => {
+          const z = zq(q, lt); place(g, F.w * z.x / 100, F.h * z.y / 100);
+          const a = p(lt, pt[j], pt[j] + 0.45);
+          g.style.opacity = a > 0 ? 1 : 0; g.firstChild.style.transform = `translate(-50%,-50%) scale(${back(a)})`;
+          if (lb) { lb.style.opacity = eo(p(lt, pt[j] + 0.15, pt[j] + 0.55)); lb.style.transform = `translate(-50%, ${(1 - eo(p(lt, pt[j] + 0.15, pt[j] + 0.55))) * 0.6 + 0.9}em)`; }
+        });
+      },
+      dotAt(lt) {
+        if (!this.pts.length) { const k = eio(p(lt, 0.15, 1.0)); return { x: lerp(this.dotIn.x, A.x + F.x + F.w + 2 * U, k), y: this.dotIn.y, s: 1 }; }
+        let q = this.dotIn;
+        const P = pins.map(x => at(x, lt));
+        for (let j = 0; j < P.length; j++) { const t0 = pt[j] - 0.5; if (lt >= t0) q = arc(j ? P[j - 1] : this.dotIn, P[j], eio(p(lt, t0, pt[j])), 4 * U); }
+        const j = pt.findIndex((t, i) => lt >= t && lt < t + 0.4);
+        return { ...q, s: j >= 0 ? 1 + 0.5 * Math.sin(p(lt, pt[j], pt[j] + 0.4) * Math.PI) : 1 };
+      },
+    };
+  };
+
   // 그릴 수 없는 장면: 무엇이 빠졌는지 화면에 알린다
   T.oops = (sc, root, err) => {
     const c = el('div', 'abs qa', root); place(c, S.x, S.y, S.w, S.h);
@@ -551,6 +619,7 @@
     const sample = TEXTS.join(' ') + '0123456789';
     await Promise.all(fontLoads.map(f => document.fonts.load(f, sample).catch(() => null)));
     await document.fonts.ready;
+    await Promise.all(scenes.map(s => s.prepare ? s.prepare().catch(e => { s.root.innerHTML = ''; const d = s.dur; Object.assign(s, T.oops(s.sc, s.root, e)); s.dur = d; }) : null));   // 사진이 다 읽힌 뒤 잰다
     for (const s of scenes) {
       s.root.style.display = 'block';
       try { s.measure(); } catch (e) { s.dotIn = s.dotOut = { x: S.x + S.w / 2, y: S.y + S.h / 2 }; s.update = () => {}; s.dotAt = () => s.dotIn; console.warn('장면', s.i + 1, e); }

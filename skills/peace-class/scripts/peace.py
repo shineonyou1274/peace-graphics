@@ -105,8 +105,42 @@ def tidy_say(t):
     return t if t[-1:] in '.!?。…~' else t + '.'
 
 
-def pad_tail(path, sec=0.45):
-    """끝 글자가 잘려 들리지 않게 끝에 짧은 무음을 붙이고(앞뒤 10ms 페이드) 다시 쓴다."""
+TAIL = ' 네.'   # 버리는 꼬리 말 — AI 는 맨 끝 글자를 끊어 버리기 쉬워서, 끊기는 자리를 이 말로 옮긴다
+
+
+def cut_tail(w, sr):
+    """대사 + 꼬리 말로 만든 소리에서, 꼬리 말 앞의 쉼을 찾아 거기서 자르고 부드럽게 줄인다.
+    찾지 못하면 None(꼬리가 붙은 채 돌려주지 않는다)."""
+    import numpy as np
+    n = int(sr * 0.01)
+    e = np.array([np.sqrt(np.mean(w[i:i + n] ** 2)) for i in range(0, len(w) - n, n)])
+    if not len(e):
+        return None
+    th = max(0.004, float(np.percentile(e, 90)) * 0.08)
+    voiced = np.where(e > th)[0]
+    if not len(voiced):
+        return None
+    last = voiced[-1]
+    gaps, run = [], 0
+    for i in range(last + 1):   # 0.1초 넘는 쉼들
+        if e[i] <= th:
+            run += 1
+        else:
+            if run >= 10:
+                gaps.append(i - run)
+            run = 0
+    gaps = [g for g in gaps if 0.15 <= (last - g) * 0.01 <= 1.8 and g > len(e) * 0.3]   # 꼬리 말 바로 앞의 쉼
+    if not gaps:
+        return None
+    cut = min(len(w), (gaps[-1] + 8) * n)   # 쉼이 시작되고 0.08초까지 두어 끝 글자가 저절로 잦아들게
+    out = np.array(w[:cut], dtype='float32')
+    f = min(len(out), int(sr * 0.04))
+    out[-f:] *= np.linspace(1, 0, f, dtype='float32')
+    return out
+
+
+def pad_tail(path, sec=0.35):
+    """끝에 짧은 무음을 붙이고(앞 10ms 페이드) 다시 쓴다."""
     tmp = path + '.tmp.wav'
     subprocess.run([FF, '-y', '-v', 'error', '-i', path, '-af', f'afade=t=in:d=0.01,apad=pad_dur={sec}', tmp], check=True)
     os.replace(tmp, path)
@@ -318,9 +352,18 @@ elif cmd == 'voice':
             if not say or (only and str(i + 1) not in only.split(',')):
                 continue
             t0 = time.time()
-            wavs, sr = tts.generate_voice_clone(text=tidy_say(say), language='Korean', ref_audio=(rw, rsr), ref_text=stext, x_vector_only_mode=False, max_new_tokens=2048)
             out = os.path.join('voice', f'{i + 1:02d}.wav')
-            sf.write(os.path.join(work, out), np.asarray(wavs[0], dtype='float32'), sr)
+            clip = None
+            for _try in range(2):   # 꼬리 말 앞 쉼을 못 찾으면 한 번 더
+                wavs, sr = tts.generate_voice_clone(text=tidy_say(say) + TAIL, language='Korean', ref_audio=(rw, rsr), ref_text=stext, x_vector_only_mode=False, max_new_tokens=2048)
+                clip = cut_tail(np.asarray(wavs[0], dtype='float32'), sr)
+                if clip is not None:
+                    break
+            if clip is None:   # 그래도 안 되면 꼬리 없이 만들고 끝만 부드럽게
+                print(f'  ⚠ 장면 {i + 1}: 끝맺음을 다듬지 못해 꼬리 없이 만들어요 — 끝 글자를 들어 보세요')
+                wavs, sr = tts.generate_voice_clone(text=tidy_say(say), language='Korean', ref_audio=(rw, rsr), ref_text=stext, x_vector_only_mode=False, max_new_tokens=2048)
+                clip = np.asarray(wavs[0], dtype='float32'); f = int(sr * 0.04); clip[-f:] *= np.linspace(1, 0, f, dtype='float32')
+            sf.write(os.path.join(work, out), clip, sr)
             pad_tail(os.path.join(work, out))
             sc['voice'] = out; sc.pop('voiceData', None); sc.pop('voiceDur', None)
             print(f'  장면 {i + 1:02d} → {out} ({audio_len(os.path.join(work, out)):.1f}초 · {time.time() - t0:.0f}초 걸림)')

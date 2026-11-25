@@ -66,8 +66,13 @@
   const playBtn = h('button', { class: 'play', onclick: () => toggle() }, '▶ 재생');
   const timeEl = h('span', { class: 'time' }, '0:00');
   const qaBox = h('div', { class: 's-qa' });
+  let onlyScene = false;
+  const scopeBox = h('div', { class: 'scope' },
+    h('label', {}, h('input', { type: 'radio', name: 'scope', checked: true, onchange: () => { onlyScene = false; refreshGallery(); } }), ' 수업 전체에'),
+    h('label', {}, h('input', { type: 'radio', name: 'scope', onchange: () => { onlyScene = true; refreshGallery(); } }), ' 지금 장면에만'),
+    h('button', { class: 'linkbtn', onclick: () => { L.scenes.forEach(x => delete x.style); changed(true); renderLeft(); refreshGallery(); } }, '장면별 스타일 모두 지우기'));
   right.append(
-    h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '지금 고른 장면이 스타일마다 어떻게 보이는지')), gallery),
+    h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '지금 고른 장면이 스타일마다 어떻게 보이는지 · 장면마다 다르게 해도 돼요')), scopeBox, gallery),
     h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox));
 
   function renderAll() { renderLeft(); refresh(true); }
@@ -104,6 +109,8 @@
         h('button', { title: '아래로', onclick: e => { e.stopPropagation(); move(i, 1); } }, '↓'),
         h('button', { title: '복제', onclick: e => { e.stopPropagation(); L.scenes.splice(i + 1, 0, clone(sc)); cur = i + 1; renderAll(); } }, '⧉'),
         h('button', { title: '지우기', onclick: e => { e.stopPropagation(); if (L.scenes.length > 1 && confirm(`${i + 1}번 장면(${T.name})을 지울까요?`)) { L.scenes.splice(i, 1); cur = Math.min(cur, L.scenes.length - 1); renderAll(); } } }, '✕'))));
+    card.append(row('이 장면 스타일', h('select', { class: 'stsel', onchange: e => { if (e.target.value) sc.style = e.target.value; else delete sc.style; changed(true); markCur(); refreshGallery(); } },
+      h('option', { value: '' }, `수업 스타일대로 (${(PC.STYLES.find(x => x.id === (L.style || 'dark')) || PC.STYLES[0]).name})`), ...PC.STYLES.map(x => h('option', { value: x.id, selected: sc.style === x.id }, x.name)))));
     T.fields.forEach(([path, label, kind, extra, keys]) => card.append(field(sc, path, label, kind, extra, keys)));
     card.append(voiceField(sc, i));
     card.append(h('details', { class: 'more' }, h('summary', {}, '길이'),
@@ -354,10 +361,15 @@
   async function drawGallery() {
     gallery.innerHTML = '';
     const sc = L.scenes[cur]; if (!sc) return;
-    const one = { ...clone(L), scenes: [clone(sc)] };
+    const one = { ...clone(L), scenes: [clone(sc)] }; delete one.scenes[0].style;
     for (const S of PC.STYLES) {
       const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
-      const card = h('button', { class: 'thumb' + ((L.style || 'dark') === S.id ? ' on' : ''), onclick: () => { L.style = S.id; changed(true); } }, holder, h('b', {}, S.name), h('small', {}, S.desc));
+      const eff = sc.style || L.style || 'dark';
+      const card = h('button', { class: 'thumb' + (eff === S.id ? ' on' : ''), onclick: () => {
+        if (onlyScene) { if (S.id === (L.style || 'dark')) delete sc.style; else sc.style = S.id; }
+        else { L.style = S.id; }
+        changed(true); renderLeft(); refreshGallery();
+      } }, holder, h('b', {}, S.name), h('small', {}, S.desc));
       gallery.append(card);
       try {
         const g = PC.mount(st, { ...one, style: S.id });

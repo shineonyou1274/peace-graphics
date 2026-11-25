@@ -102,3 +102,9 @@ textarea { resize: vertical; }
 .help .sayrow { display: grid; grid-template-columns: 26px 64px 1fr auto; gap: 6px; align-items: center; font-size: 13px; }
 .help .sayrow span { color: var(--s-dim); font-size: 12px; }
 .help > div { max-width: 720px; }
+
+.scope { display: flex; gap: 14px; align-items: center; margin: 0 0 8px; font-size: 13px; flex-wrap: wrap; }
+.scope label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.scope input { width: auto; }
+.linkbtn { border: none; background: none; color: var(--s-dim); text-decoration: underline; cursor: pointer; font-size: 12px; margin-left: auto; }
+.stsel { font-weight: 700; }

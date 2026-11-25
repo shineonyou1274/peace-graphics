@@ -28,8 +28,11 @@
   const W = R ? 1080 : 1920, H = R ? 1920 : 1080, U = Math.min(W, H) / 100;
   // 안전 영역: 9:16 은 쇼츠 화면의 버튼 · 자막 자리를 비운다(위 300 · 아래 480 · 오른쪽 200 · 왼쪽 60)
   const S = R ? { x: 60, y: 300, w: 820, h: 1140 } : { x: 0.075 * W, y: 0.14 * H, w: 0.85 * W, h: 0.72 * H };
-  const STY = styleOf(L);
-  const ACC = L.accent || STY.acc(L.subject);
+  // 장면마다 스타일을 따로 고를 수 있다(sc.style). 지금 보이는 장면의 스타일로 무대 전체(바탕 · 점 · 틀 · 장식)가 바뀐다
+  const STY0 = styleOf(L), styleOfScene = sc => (sc && sc.style && STYLES.find(x => x.id === sc.style)) || STY0;
+  const USED = new Set([STY0.id, ...L.scenes.map(sc => styleOfScene(sc).id)]);
+  let STY = STY0, ACC = L.accent || STY0.acc(L.subject);
+  const useStyle = sty => { STY = sty; ACC = L.accent || sty.acc(L.subject); };
   const BAD = '#ff4d5e';
   // ---------- 작은 도구 ----------
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -63,7 +66,7 @@
   const wipe = (e, k) => { e.style.clipPath = `inset(-20% ${((1 - k) * 100).toFixed(2)}% -20% -2%)`; };
 
   // ---------- 무대 ----------
-  stage.innerHTML = ''; stage.className = `pc-stage theme-${STY.id}${STY.light ? ' pc-light' : ''}${R ? ' r916' : ''}`;
+  stage.innerHTML = ''; stage.className = `pc-stage theme-${STY.id}${STY.light ? ' pc-light' : ''}${R ? ' r916' : ''}`; stage.dataset.th = STY.id;
   css(stage, { width: px(W), height: px(H) });
   stage.style.setProperty('--acc', ACC); stage.style.setProperty('--bad', BAD); stage.style.setProperty('--u', px(U));
   const HITS = [], TEXTS = [];
@@ -80,7 +83,7 @@
   const prog = el('div', 'prog', frame); place(prog, 0, H - .35 * U, 0);
   // 스타일 장식: 귀퉁이 십자(청사진) · 분필 질감(칠판)
   ['tl', 'tr', 'bl', 'br'].forEach(k => { const c = el('i', 'cm cm-' + k, frame); place(c, k[1] === 'l' ? S.x - 2.2 * U : S.x + S.w + .2 * U, k[0] === 't' ? top + 5.2 * U : bot - 4.6 * U); });
-  if (STY.id === 'board') {
+  if (USED.has('board')) {
     // 분필 글씨: 결 사이로 칠판이 비치고(구멍), 획 가장자리가 살짝 떨린다
     stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-chalk" x="-4%" y="-12%" width="108%" height="124%">'
       + '<feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="4" result="n"/>'
@@ -91,18 +94,18 @@
     // 칠판 바탕: 분필 가루 · 지우개 자국 · 지워진 옛 글씨 자국 (늘 같은 자리 · 무작위 없음)
     const smear = [[.18, .28, .34, .10, -8], [.62, .2, .42, .12, 6], [.34, .72, .5, .13, -4], [.8, .78, .3, .09, 10], [.5, .48, .62, .16, 2]]
       .map(([x, y, w, h, r]) => `<ellipse cx="${x * W}" cy="${y * H}" rx="${w * W / 2}" ry="${h * H / 2}" transform="rotate(${r} ${x * W} ${y * H})" fill="#fff" opacity=".045" filter="url(#pc-blur)"/>`).join('');
-    const bg = el('div', 'chalkbg', null); stage.insertBefore(bg, stage.firstChild);
+    const bg = el('div', 'chalkbg', null); bg.dataset.th = 'board'; stage.insertBefore(bg, stage.firstChild);
     bg.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><filter id="pc-blur"><feGaussianBlur stdDeviation="${3 * U}"/></filter>`
       + `<filter id="pc-dust" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="3"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -1.9 1.04"/></filter></defs>`
       + `<rect width="${W}" height="${H}" filter="url(#pc-dust)" opacity=".3"/>${smear}`
       + `<g stroke="#fff" stroke-width="${.9 * U}" stroke-linecap="round" fill="none" opacity=".035" filter="url(#pc-blur)"><path d="M${.08 * W} ${.9 * H} q ${.1 * W} ${-.05 * H} ${.22 * W} ${-.01 * H}"/><path d="M${.7 * W} ${.12 * H} q ${.08 * W} ${.04 * H} ${.2 * W} 0"/></g></svg>`;
   }
-  if (STY.id === 'ink') {
+  if (USED.has('ink')) {
     // 먹: 획 가장자리가 한지에 번진다 · 한지 섬유
     stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-ink" x="-5%" y="-10%" width="110%" height="120%">'
       + '<feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="5" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4" xChannelSelector="R" yChannelSelector="G" result="d"/>'
       + '<feGaussianBlur in="d" stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="d"/></feMerge></filter></svg>');
-    const bg = el('div', 'inkbg', null); stage.insertBefore(bg, stage.firstChild);
+    const bg = el('div', 'inkbg', null); bg.dataset.th = 'ink'; stage.insertBefore(bg, stage.firstChild);
     bg.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><filter id="pc-fiber" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006 0.09" numOctaves="3" seed="11"/><feColorMatrix type="matrix" values="0 0 0 0 .55  0 0 0 0 .48  0 0 0 0 .38  0 0 0 -1.6 1.0"/></filter><rect width="${W}" height="${H}" filter="url(#pc-fiber)" opacity=".22"/>`
       + `<filter id="pc-wash"><feGaussianBlur stdDeviation="${6 * U}"/></filter><ellipse cx="${.86 * W}" cy="${.84 * H}" rx="${.22 * W}" ry="${.12 * H}" fill="#000" opacity=".05" filter="url(#pc-wash)"/></svg>`;
   }
@@ -117,26 +120,34 @@
   const PAL = { Y: '#ffec27', y: '#ffa300', R: '#ff004d', W: '#fff1e8', w: '#c2c3c7', H: '#5f3a1d', S: '#ffccaa', K: '#1d2b53', B: '#29adff', L: '#1d2b53' };
   const sprite = (name, cell) => { const m = SPR[name], h = m.length, w = m[0].length; let r = ''; m.forEach((row, y) => { for (let x = 0; x < w;) { const c = row[x]; if (c === '.') { x++; continue; } let n = 1; while (row[x + n] === c) n++; r += `<rect x="${x * cell}" y="${y * cell}" width="${n * cell}" height="${cell}" fill="${PAL[c]}"/>`; x += n; } }); return `<svg width="${w * cell}" height="${h * cell}" shape-rendering="crispEdges">${r}</svg>`; };
   let pix = null;
-  if (STY.id === 'pixel') {
-    const bg = el('div', 'pixbg', null); stage.insertBefore(bg, stage.firstChild);
+  if (USED.has('pixel')) {
+    const bg = el('div', 'pixbg', null); bg.dataset.th = 'pixel'; stage.insertBefore(bg, stage.firstChild);
     const c = Math.round(U * 0.9);
     const clouds = [[.08, .2, 1], [.66, .12, 1.4], [.4, .78, .8]].map(([x, y, k]) => { const e = el('div', 'abs spr', bg); e.innerHTML = sprite('cloud', Math.round(c * k)); e.style.opacity = .16; place(e, x * W, y * H); return { e, x: x * W, sp: 12 + k * 10 }; });
     const stars = [[.15, .1], [.3, .28], [.52, .08], [.86, .3], [.92, .62], [.06, .58], [.74, .86], [.22, .9]].map(([x, y], i) => { const e = el('div', 'abs spr', bg); e.innerHTML = sprite('star', Math.round(c * .5)); place(e, x * W, y * H); return { e, i }; });
-    const kid = el('div', 'abs spr', stage); kid.innerHTML = sprite('kid', Math.round(c * .75)); kid.style.zIndex = 5;
+    const kid = el('div', 'abs spr', stage); kid.innerHTML = sprite('kid', Math.round(c * .75)); kid.style.zIndex = 5; kid.dataset.th = 'pixel';
     pix = { clouds, stars, kid, y0: R ? S.y + S.h + 1.4 * U : H - 11.6 * U };
   }
   let leak = null;
-  if (STY.id === 'cinema') {
+  if (USED.has('cinema')) {
     // 예고편: 위아래 검은 띠 · 빛 번짐(시간에 따라 천천히 흐른다)
-    leak = el('div', 'leak', stage);
-    const bh = R ? 9 * U : 6.5 * U; const bt = el('div', 'lbox', stage); place(bt, 0, 0, W, bh); const bb = el('div', 'lbox', stage); place(bb, 0, H - bh, W, bh);
+    leak = el('div', 'leak', stage); leak.dataset.th = 'cinema';
+    const bh = R ? 9 * U : 6.5 * U; const bt = el('div', 'lbox', stage); place(bt, 0, 0, W, bh); const bb = el('div', 'lbox', stage); place(bb, 0, H - bh, W, bh); bt.dataset.th = bb.dataset.th = 'cinema';
   }
   const dot = el('div', 'dot', stage);
-  if (pix) dot.innerHTML = sprite('coin', Math.round(U * .42));
+  const COIN = pix ? sprite('coin', Math.round(U * .42)) : '';
+  // 무대를 한 스타일로: 바탕 · 점 · 틀 · 장식(그 스타일 것만 보인다)
+  let curTheme = null;
+  const applyTheme = sty => {
+    useStyle(sty); if (curTheme === sty.id) return; curTheme = sty.id;
+    stage.className = `pc-stage theme-${sty.id}${sty.light ? ' pc-light' : ''}${R ? ' r916' : ''}`; stage.style.setProperty('--acc', ACC);
+    stage.querySelectorAll('[data-th]').forEach(e => { if (e !== stage) e.style.display = e.dataset.th === sty.id ? '' : 'none'; });
+    dot.innerHTML = sty.id === 'pixel' ? COIN : '';
+  };
+  applyTheme(STY0);
   // 박자마다 쾅: 배경음 박자(분위기마다 빠르기)에 맞춰 장면이 살짝 튄다
   const BPM = { calm: 84, bright: 100, serious: 70 }[L.mood || 'calm'] || 84, BT = 60 / BPM;
-  const beatOn = L.beat === 'on' || (L.beat !== 'off' && !!STY.beat);
-  const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
+  const beatOf = sty => L.beat === 'on' || (L.beat !== 'off' && !!sty.beat);
   // 진짜 도장: 나무 도장이 내려와 꾹 누르고 올라가면, 붉은 인주 자국이 남는다
   const mkStamp = (parent, text, cls = '') => {
     const w = el('div', 'stampwrap', parent), imp = el('div', 'stamp ' + cls, w, text), tool = el('div', 'stamper', w);
@@ -580,6 +591,7 @@
   // 사진: 사진이 열리고 천천히 다가가며, 점이 짚는 곳마다 이름표가 붙는다
   // sc.src(사진 · data URL 또는 경로) · sc.title(위 작은 글) · sc.caption(설명 · [[형광]]) · sc.pins[{x,y,label}](사진 위 % 자리)
   T.photo = (sc, root) => {
+    const PIXEL = STY.id === 'pixel';
     if (!sc.src) throw new Error('사진을 넣어 주세요');
     const pins = (sc.pins || []).filter(q => q && q.x != null && q.y != null);
     const hasSide = !!(sc.title || sc.caption);
@@ -616,7 +628,7 @@
       dur, hits: [[0.15, 'sweep'], ...(cap ? [[tCap, 'words']] : []), ...(cap && cap.querySelector('.hl') ? [[tCap + 1.0, 'mark']] : []), ...pt.map(t => [t, 'pop'])],
       async prepare() {
         if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; }); if (!img.naturalWidth) throw new Error('사진을 읽지 못했어요');
-        if (STY.id === 'pixel') {   // 픽셀 스타일: 사진도 큰 네모 칸으로(가로 72칸 · 색 단계 줄이기)
+        if (PIXEL) {   // 픽셀 스타일: 사진도 큰 네모 칸으로(가로 72칸 · 색 단계 줄이기)
           const cw = 72, ch = Math.max(1, Math.round(cw * img.naturalHeight / img.naturalWidth)), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
           const g = cv.getContext('2d'); g.drawImage(img, 0, 0, cw, ch); const d = g.getImageData(0, 0, cw, ch); for (let i = 0; i < d.data.length; i += 4) for (let j = 0; j < 3; j++) d.data[i + j] = Math.round(d.data[i + j] / 48) * 48; g.putImageData(d, 0, 0);
           img.style.imageRendering = 'pixelated'; await new Promise(r => { img.onload = r; img.src = cv.toDataURL(); });
@@ -763,10 +775,11 @@
   // ================= 짓기 =================
   L.scenes.forEach((sc, i) => {
     const root = el('div', 'scene', stage);
+    const ST = styleOfScene(sc); useStyle(ST);
     let s;
     try { if (!T[sc.type]) throw new Error(`모르는 장면 틀: ${sc.type}`); s = T[sc.type](sc, root); }
     catch (e) { root.innerHTML = ''; s = T.oops(sc, root, e); }   // 고치는 중에 빈 칸이 있어도 멈추지 않는다
-    s.root = root; s.sc = sc; s.i = i; scenes.push(s);
+    s.root = root; s.sc = sc; s.i = i; s.STY = ST; scenes.push(s);
     const md = Math.max(sc.minDur || 0, sc.voiceDur ? sc.voiceDur + 1.2 : 0); if (md) s.dur = Math.max(s.dur, md);   // 녹음이 있으면 말 길이만큼은 머문다
   });
   let acc = 0; scenes.forEach(s => { s.t0 = acc; acc += s.dur; s.hits.forEach(([t, k]) => HITS.push({ t: +(s.t0 + t).toFixed(3), kind: k, scene: s.i + 1 })); });
@@ -782,14 +795,16 @@
     return { x: q.x, y: q.y, s: q.s != null ? q.s : 1 };
   };
   const endHit = (HITS.find(h => h.kind === 'end') || { t: DUR }).t;
-  const punch = t => { if (!beatOn || t < BT * 4 || t > endHit) return 0; const n = Math.floor(t / BT), ph = (t - n * BT) / BT; return Math.exp(-ph * 9) * (n % 4 === 0 ? 1 : 0.5); };
+  const punch = (t, sty) => { if (!beatOf(sty) || t < BT * 4 || t > endHit) return 0; const n = Math.floor(t / BT), ph = (t - n * BT) / BT; return Math.exp(-ph * 9) * (n % 4 === 0 ? 1 : 0.5); };
   const seek = t => {
     t = clamp(t, 0, DUR - 1e-4);
+    const act = scenes.find(s => t >= s.t0 && t < s.t0 + s.dur) || scenes.at(-1); applyTheme(act.STY);
     if (STY.steps) t = Math.floor(t * STY.steps) / STY.steps;   // 종이 공작 · 픽셀: 뚝뚝 끊기는 움직임
     for (const s of scenes) {
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
       s.root.style.display = on ? 'block' : 'none';
       if (!on) continue;
+      useStyle(s.STY); const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
       try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
       const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
@@ -813,7 +828,7 @@
         case 'wipe': rs.clipPath = kout > 0 ? `inset(0 0 0 ${kout * 100}%)` : (kin < 1 ? `inset(0 ${ti * 100}% 0 0)` : ''); rs.opacity = 1; break; // 설계도 긋기
         default: rs.transform = `translateY(${-kout * 2.4 * U}px)`; rs.filter = kout > 0.01 ? `blur(${kout * 8}px)` : '';
       }
-      const pk = punch(t); if (pk > 0.01) rs.transform = (rs.transform || '') + ` scale(${1 + 0.02 * pk})`;
+      const pk = punch(t, STY); if (pk > 0.01) rs.transform = (rs.transform || '') + ` scale(${1 + 0.02 * pk})`;
       labTR.innerHTML = `<b>${String(s.i + 1).padStart(2, '0')}</b> / ${String(scenes.length).padStart(2, '0')}`;
     }
     // 점
@@ -826,20 +841,20 @@
     labBR.textContent = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
     prog.style.width = px(W * t / DUR);
     frame.style.opacity = eo(p(t, 0, 0.6)) * endFade;
-    if (pix) {   // 구름은 칸 단위로 흐르고, 별은 깜빡이고, 아이는 박자에 맞춰 걷다 뛴다
+    if (pix && curTheme === 'pixel') {   // 구름은 칸 단위로 흐르고, 별은 깜빡이고, 아이는 박자에 맞춰 걷다 뛴다
       pix.clouds.forEach(c => { c.e.style.transform = `translateX(${Math.round(((t * c.sp) % (W * .4)) / (U * .9)) * U * .9}px)`; });
       pix.stars.forEach(st => { st.e.style.opacity = (Math.floor(t * 3 + st.i * 1.7) % 4 === 0) ? .15 : .55; });
       const bt = 60 / BPM, k = (t % bt) / bt, hop = Math.sin(k * Math.PI) * 1.6 * U * (t > bt * 4 && t < endHit ? 1 : 0.3);
       place(pix.kid, S.x + ((t * 7 * U) % (S.w - 6 * U)), pix.y0 - Math.round(hop / (U * .7)) * U * .7); pix.kid.style.opacity = endFade;
       dot.firstChild.style.transform = `scaleX(${[1, .6, .2, .6][Math.floor(t * 8) % 4]})`;
     }
-    if (leak) { leak.style.transform = `translateX(${Math.sin(t * 0.33) * W * 0.2}px)`; leak.style.opacity = (0.45 + 0.3 * Math.sin(t * 0.7 + 1)) * endFade; }
+    if (leak && curTheme === 'cinema') { leak.style.transform = `translateX(${Math.sin(t * 0.33) * W * 0.2}px)`; leak.style.opacity = (0.45 + 0.3 * Math.sin(t * 0.7 + 1)) * endFade; }
     stage.style.setProperty('--fade', endFade);
     stage.querySelectorAll('.scene').forEach(sc => { if (sc.style.display === 'block' && t > DUR - 0.5) sc.style.opacity = String(+sc.style.opacity * endFade); });
   };
 
   // 오른쪽 아래 라벨 자리(글자 너비를 알아야 해서 READY 에서)
-  const placeRight = (e, y) => place(e, S.x + S.w - e.offsetWidth, y);
+  const placeRight = (e, y) => css(e, { left: 'auto', right: px(W - S.x - S.w), top: px(y) });   // 스타일마다 글꼴 너비가 달라 오른쪽에 붙인다
 
   // 겹침 · 넘침 점검: 장면마다 다 나온 순간을 보고, 안전 영역을 넘거나 글 덩어리가 겹치면 알린다
   const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', hangul: '한글 조립', end: '마무리' };
@@ -870,7 +885,7 @@
     await document.fonts.ready;
     await Promise.all(scenes.map(s => s.prepare ? s.prepare().catch(e => { s.root.innerHTML = ''; const d = s.dur; Object.assign(s, T.oops(s.sc, s.root, e)); s.dur = d; }) : null));   // 사진이 다 읽힌 뒤 잰다
     for (const s of scenes) {
-      s.root.style.display = 'block';
+      applyTheme(s.STY); s.root.style.display = 'block';
       try { s.measure(); } catch (e) { s.dotIn = s.dotOut = { x: S.x + S.w / 2, y: S.y + S.h / 2 }; s.update = () => {}; s.dotAt = () => s.dotIn; console.warn('장면', s.i + 1, e); }
       s.root.style.display = 'none';
     }
@@ -963,7 +978,7 @@
       else if (kind === 'stamp') { I.kick(t, 0.7); noise(t, 0.12, filt(vca(fx, t, 0.001, 0.1, 0.35), 900)); I.rim(t + 0.01, 0.12, fx); }
       else if (kind === 'end') { I.bell(t, SC[5], 2.4, 0.13); I.bell(t + 0.08, SC[8], 2.4, 0.08); }
     }
-    if (CINE) SCENES.forEach((s, i) => { if (i) I.boom(s.t0 + 0.05, 0.5); });   // 장면이 바뀔 때마다 낮게 쾅
+    SCENES.forEach((s, i) => { if (i && ((L.scenes[i] && L.scenes[i].style) || L.style || L.theme) === 'cinema') I.boom(s.t0 + 0.05, 0.5); });   // 장면이 바뀔 때마다 낮게 쾅
     // 녹음(선생님 목소리) — 장면 시작 0.35초 뒤 · 말하는 동안 배경음을 낮춘다
     for (let i = 0; i < L.scenes.length; i++) {
       const sc = L.scenes[i]; if (!sc.voiceData) continue;

@@ -369,6 +369,12 @@ textarea { resize: vertical; }
 .help .sayrow { display: grid; grid-template-columns: 26px 64px 1fr auto; gap: 6px; align-items: center; font-size: 13px; }
 .help .sayrow span { color: var(--s-dim); font-size: 12px; }
 .help > div { max-width: 720px; }
+
+.scope { display: flex; gap: 14px; align-items: center; margin: 0 0 8px; font-size: 13px; flex-wrap: wrap; }
+.scope label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.scope input { width: auto; }
+.linkbtn { border: none; background: none; color: var(--s-dim); text-decoration: underline; cursor: pointer; font-size: 12px; margin-left: auto; }
+.stsel { font-weight: 700; }
 </style>
 </head>
 <body>
@@ -405,8 +411,11 @@ textarea { resize: vertical; }
   const W = R ? 1080 : 1920, H = R ? 1920 : 1080, U = Math.min(W, H) / 100;
   // 안전 영역: 9:16 은 쇼츠 화면의 버튼 · 자막 자리를 비운다(위 300 · 아래 480 · 오른쪽 200 · 왼쪽 60)
   const S = R ? { x: 60, y: 300, w: 820, h: 1140 } : { x: 0.075 * W, y: 0.14 * H, w: 0.85 * W, h: 0.72 * H };
-  const STY = styleOf(L);
-  const ACC = L.accent || STY.acc(L.subject);
+  // 장면마다 스타일을 따로 고를 수 있다(sc.style). 지금 보이는 장면의 스타일로 무대 전체(바탕 · 점 · 틀 · 장식)가 바뀐다
+  const STY0 = styleOf(L), styleOfScene = sc => (sc && sc.style && STYLES.find(x => x.id === sc.style)) || STY0;
+  const USED = new Set([STY0.id, ...L.scenes.map(sc => styleOfScene(sc).id)]);
+  let STY = STY0, ACC = L.accent || STY0.acc(L.subject);
+  const useStyle = sty => { STY = sty; ACC = L.accent || sty.acc(L.subject); };
   const BAD = '#ff4d5e';
   // ---------- 작은 도구 ----------
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -440,7 +449,7 @@ textarea { resize: vertical; }
   const wipe = (e, k) => { e.style.clipPath = `inset(-20% ${((1 - k) * 100).toFixed(2)}% -20% -2%)`; };
 
   // ---------- 무대 ----------
-  stage.innerHTML = ''; stage.className = `pc-stage theme-${STY.id}${STY.light ? ' pc-light' : ''}${R ? ' r916' : ''}`;
+  stage.innerHTML = ''; stage.className = `pc-stage theme-${STY.id}${STY.light ? ' pc-light' : ''}${R ? ' r916' : ''}`; stage.dataset.th = STY.id;
   css(stage, { width: px(W), height: px(H) });
   stage.style.setProperty('--acc', ACC); stage.style.setProperty('--bad', BAD); stage.style.setProperty('--u', px(U));
   const HITS = [], TEXTS = [];
@@ -457,7 +466,7 @@ textarea { resize: vertical; }
   const prog = el('div', 'prog', frame); place(prog, 0, H - .35 * U, 0);
   // 스타일 장식: 귀퉁이 십자(청사진) · 분필 질감(칠판)
   ['tl', 'tr', 'bl', 'br'].forEach(k => { const c = el('i', 'cm cm-' + k, frame); place(c, k[1] === 'l' ? S.x - 2.2 * U : S.x + S.w + .2 * U, k[0] === 't' ? top + 5.2 * U : bot - 4.6 * U); });
-  if (STY.id === 'board') {
+  if (USED.has('board')) {
     // 분필 글씨: 결 사이로 칠판이 비치고(구멍), 획 가장자리가 살짝 떨린다
     stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-chalk" x="-4%" y="-12%" width="108%" height="124%">'
       + '<feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="4" result="n"/>'
@@ -468,18 +477,18 @@ textarea { resize: vertical; }
     // 칠판 바탕: 분필 가루 · 지우개 자국 · 지워진 옛 글씨 자국 (늘 같은 자리 · 무작위 없음)
     const smear = [[.18, .28, .34, .10, -8], [.62, .2, .42, .12, 6], [.34, .72, .5, .13, -4], [.8, .78, .3, .09, 10], [.5, .48, .62, .16, 2]]
       .map(([x, y, w, h, r]) => `<ellipse cx="${x * W}" cy="${y * H}" rx="${w * W / 2}" ry="${h * H / 2}" transform="rotate(${r} ${x * W} ${y * H})" fill="#fff" opacity=".045" filter="url(#pc-blur)"/>`).join('');
-    const bg = el('div', 'chalkbg', null); stage.insertBefore(bg, stage.firstChild);
+    const bg = el('div', 'chalkbg', null); bg.dataset.th = 'board'; stage.insertBefore(bg, stage.firstChild);
     bg.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><filter id="pc-blur"><feGaussianBlur stdDeviation="${3 * U}"/></filter>`
       + `<filter id="pc-dust" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="3"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -1.9 1.04"/></filter></defs>`
       + `<rect width="${W}" height="${H}" filter="url(#pc-dust)" opacity=".3"/>${smear}`
       + `<g stroke="#fff" stroke-width="${.9 * U}" stroke-linecap="round" fill="none" opacity=".035" filter="url(#pc-blur)"><path d="M${.08 * W} ${.9 * H} q ${.1 * W} ${-.05 * H} ${.22 * W} ${-.01 * H}"/><path d="M${.7 * W} ${.12 * H} q ${.08 * W} ${.04 * H} ${.2 * W} 0"/></g></svg>`;
   }
-  if (STY.id === 'ink') {
+  if (USED.has('ink')) {
     // 먹: 획 가장자리가 한지에 번진다 · 한지 섬유
     stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-ink" x="-5%" y="-10%" width="110%" height="120%">'
       + '<feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="5" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4" xChannelSelector="R" yChannelSelector="G" result="d"/>'
       + '<feGaussianBlur in="d" stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="d"/></feMerge></filter></svg>');
-    const bg = el('div', 'inkbg', null); stage.insertBefore(bg, stage.firstChild);
+    const bg = el('div', 'inkbg', null); bg.dataset.th = 'ink'; stage.insertBefore(bg, stage.firstChild);
     bg.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><filter id="pc-fiber" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006 0.09" numOctaves="3" seed="11"/><feColorMatrix type="matrix" values="0 0 0 0 .55  0 0 0 0 .48  0 0 0 0 .38  0 0 0 -1.6 1.0"/></filter><rect width="${W}" height="${H}" filter="url(#pc-fiber)" opacity=".22"/>`
       + `<filter id="pc-wash"><feGaussianBlur stdDeviation="${6 * U}"/></filter><ellipse cx="${.86 * W}" cy="${.84 * H}" rx="${.22 * W}" ry="${.12 * H}" fill="#000" opacity=".05" filter="url(#pc-wash)"/></svg>`;
   }
@@ -494,26 +503,34 @@ textarea { resize: vertical; }
   const PAL = { Y: '#ffec27', y: '#ffa300', R: '#ff004d', W: '#fff1e8', w: '#c2c3c7', H: '#5f3a1d', S: '#ffccaa', K: '#1d2b53', B: '#29adff', L: '#1d2b53' };
   const sprite = (name, cell) => { const m = SPR[name], h = m.length, w = m[0].length; let r = ''; m.forEach((row, y) => { for (let x = 0; x < w;) { const c = row[x]; if (c === '.') { x++; continue; } let n = 1; while (row[x + n] === c) n++; r += `<rect x="${x * cell}" y="${y * cell}" width="${n * cell}" height="${cell}" fill="${PAL[c]}"/>`; x += n; } }); return `<svg width="${w * cell}" height="${h * cell}" shape-rendering="crispEdges">${r}</svg>`; };
   let pix = null;
-  if (STY.id === 'pixel') {
-    const bg = el('div', 'pixbg', null); stage.insertBefore(bg, stage.firstChild);
+  if (USED.has('pixel')) {
+    const bg = el('div', 'pixbg', null); bg.dataset.th = 'pixel'; stage.insertBefore(bg, stage.firstChild);
     const c = Math.round(U * 0.9);
     const clouds = [[.08, .2, 1], [.66, .12, 1.4], [.4, .78, .8]].map(([x, y, k]) => { const e = el('div', 'abs spr', bg); e.innerHTML = sprite('cloud', Math.round(c * k)); e.style.opacity = .16; place(e, x * W, y * H); return { e, x: x * W, sp: 12 + k * 10 }; });
     const stars = [[.15, .1], [.3, .28], [.52, .08], [.86, .3], [.92, .62], [.06, .58], [.74, .86], [.22, .9]].map(([x, y], i) => { const e = el('div', 'abs spr', bg); e.innerHTML = sprite('star', Math.round(c * .5)); place(e, x * W, y * H); return { e, i }; });
-    const kid = el('div', 'abs spr', stage); kid.innerHTML = sprite('kid', Math.round(c * .75)); kid.style.zIndex = 5;
+    const kid = el('div', 'abs spr', stage); kid.innerHTML = sprite('kid', Math.round(c * .75)); kid.style.zIndex = 5; kid.dataset.th = 'pixel';
     pix = { clouds, stars, kid, y0: R ? S.y + S.h + 1.4 * U : H - 11.6 * U };
   }
   let leak = null;
-  if (STY.id === 'cinema') {
+  if (USED.has('cinema')) {
     // 예고편: 위아래 검은 띠 · 빛 번짐(시간에 따라 천천히 흐른다)
-    leak = el('div', 'leak', stage);
-    const bh = R ? 9 * U : 6.5 * U; const bt = el('div', 'lbox', stage); place(bt, 0, 0, W, bh); const bb = el('div', 'lbox', stage); place(bb, 0, H - bh, W, bh);
+    leak = el('div', 'leak', stage); leak.dataset.th = 'cinema';
+    const bh = R ? 9 * U : 6.5 * U; const bt = el('div', 'lbox', stage); place(bt, 0, 0, W, bh); const bb = el('div', 'lbox', stage); place(bb, 0, H - bh, W, bh); bt.dataset.th = bb.dataset.th = 'cinema';
   }
   const dot = el('div', 'dot', stage);
-  if (pix) dot.innerHTML = sprite('coin', Math.round(U * .42));
+  const COIN = pix ? sprite('coin', Math.round(U * .42)) : '';
+  // 무대를 한 스타일로: 바탕 · 점 · 틀 · 장식(그 스타일 것만 보인다)
+  let curTheme = null;
+  const applyTheme = sty => {
+    useStyle(sty); if (curTheme === sty.id) return; curTheme = sty.id;
+    stage.className = `pc-stage theme-${sty.id}${sty.light ? ' pc-light' : ''}${R ? ' r916' : ''}`; stage.style.setProperty('--acc', ACC);
+    stage.querySelectorAll('[data-th]').forEach(e => { if (e !== stage) e.style.display = e.dataset.th === sty.id ? '' : 'none'; });
+    dot.innerHTML = sty.id === 'pixel' ? COIN : '';
+  };
+  applyTheme(STY0);
   // 박자마다 쾅: 배경음 박자(분위기마다 빠르기)에 맞춰 장면이 살짝 튄다
   const BPM = { calm: 84, bright: 100, serious: 70 }[L.mood || 'calm'] || 84, BT = 60 / BPM;
-  const beatOn = L.beat === 'on' || (L.beat !== 'off' && !!STY.beat);
-  const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
+  const beatOf = sty => L.beat === 'on' || (L.beat !== 'off' && !!sty.beat);
   // 진짜 도장: 나무 도장이 내려와 꾹 누르고 올라가면, 붉은 인주 자국이 남는다
   const mkStamp = (parent, text, cls = '') => {
     const w = el('div', 'stampwrap', parent), imp = el('div', 'stamp ' + cls, w, text), tool = el('div', 'stamper', w);
@@ -957,6 +974,7 @@ textarea { resize: vertical; }
   // 사진: 사진이 열리고 천천히 다가가며, 점이 짚는 곳마다 이름표가 붙는다
   // sc.src(사진 · data URL 또는 경로) · sc.title(위 작은 글) · sc.caption(설명 · [[형광]]) · sc.pins[{x,y,label}](사진 위 % 자리)
   T.photo = (sc, root) => {
+    const PIXEL = STY.id === 'pixel';
     if (!sc.src) throw new Error('사진을 넣어 주세요');
     const pins = (sc.pins || []).filter(q => q && q.x != null && q.y != null);
     const hasSide = !!(sc.title || sc.caption);
@@ -993,7 +1011,7 @@ textarea { resize: vertical; }
       dur, hits: [[0.15, 'sweep'], ...(cap ? [[tCap, 'words']] : []), ...(cap && cap.querySelector('.hl') ? [[tCap + 1.0, 'mark']] : []), ...pt.map(t => [t, 'pop'])],
       async prepare() {
         if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; }); if (!img.naturalWidth) throw new Error('사진을 읽지 못했어요');
-        if (STY.id === 'pixel') {   // 픽셀 스타일: 사진도 큰 네모 칸으로(가로 72칸 · 색 단계 줄이기)
+        if (PIXEL) {   // 픽셀 스타일: 사진도 큰 네모 칸으로(가로 72칸 · 색 단계 줄이기)
           const cw = 72, ch = Math.max(1, Math.round(cw * img.naturalHeight / img.naturalWidth)), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
           const g = cv.getContext('2d'); g.drawImage(img, 0, 0, cw, ch); const d = g.getImageData(0, 0, cw, ch); for (let i = 0; i < d.data.length; i += 4) for (let j = 0; j < 3; j++) d.data[i + j] = Math.round(d.data[i + j] / 48) * 48; g.putImageData(d, 0, 0);
           img.style.imageRendering = 'pixelated'; await new Promise(r => { img.onload = r; img.src = cv.toDataURL(); });
@@ -1140,10 +1158,11 @@ textarea { resize: vertical; }
   // ================= 짓기 =================
   L.scenes.forEach((sc, i) => {
     const root = el('div', 'scene', stage);
+    const ST = styleOfScene(sc); useStyle(ST);
     let s;
     try { if (!T[sc.type]) throw new Error(`모르는 장면 틀: ${sc.type}`); s = T[sc.type](sc, root); }
     catch (e) { root.innerHTML = ''; s = T.oops(sc, root, e); }   // 고치는 중에 빈 칸이 있어도 멈추지 않는다
-    s.root = root; s.sc = sc; s.i = i; scenes.push(s);
+    s.root = root; s.sc = sc; s.i = i; s.STY = ST; scenes.push(s);
     const md = Math.max(sc.minDur || 0, sc.voiceDur ? sc.voiceDur + 1.2 : 0); if (md) s.dur = Math.max(s.dur, md);   // 녹음이 있으면 말 길이만큼은 머문다
   });
   let acc = 0; scenes.forEach(s => { s.t0 = acc; acc += s.dur; s.hits.forEach(([t, k]) => HITS.push({ t: +(s.t0 + t).toFixed(3), kind: k, scene: s.i + 1 })); });
@@ -1159,14 +1178,16 @@ textarea { resize: vertical; }
     return { x: q.x, y: q.y, s: q.s != null ? q.s : 1 };
   };
   const endHit = (HITS.find(h => h.kind === 'end') || { t: DUR }).t;
-  const punch = t => { if (!beatOn || t < BT * 4 || t > endHit) return 0; const n = Math.floor(t / BT), ph = (t - n * BT) / BT; return Math.exp(-ph * 9) * (n % 4 === 0 ? 1 : 0.5); };
+  const punch = (t, sty) => { if (!beatOf(sty) || t < BT * 4 || t > endHit) return 0; const n = Math.floor(t / BT), ph = (t - n * BT) / BT; return Math.exp(-ph * 9) * (n % 4 === 0 ? 1 : 0.5); };
   const seek = t => {
     t = clamp(t, 0, DUR - 1e-4);
+    const act = scenes.find(s => t >= s.t0 && t < s.t0 + s.dur) || scenes.at(-1); applyTheme(act.STY);
     if (STY.steps) t = Math.floor(t * STY.steps) / STY.steps;   // 종이 공작 · 픽셀: 뚝뚝 끊기는 움직임
     for (const s of scenes) {
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
       s.root.style.display = on ? 'block' : 'none';
       if (!on) continue;
+      useStyle(s.STY); const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
       try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
       const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
@@ -1190,7 +1211,7 @@ textarea { resize: vertical; }
         case 'wipe': rs.clipPath = kout > 0 ? `inset(0 0 0 ${kout * 100}%)` : (kin < 1 ? `inset(0 ${ti * 100}% 0 0)` : ''); rs.opacity = 1; break; // 설계도 긋기
         default: rs.transform = `translateY(${-kout * 2.4 * U}px)`; rs.filter = kout > 0.01 ? `blur(${kout * 8}px)` : '';
       }
-      const pk = punch(t); if (pk > 0.01) rs.transform = (rs.transform || '') + ` scale(${1 + 0.02 * pk})`;
+      const pk = punch(t, STY); if (pk > 0.01) rs.transform = (rs.transform || '') + ` scale(${1 + 0.02 * pk})`;
       labTR.innerHTML = `<b>${String(s.i + 1).padStart(2, '0')}</b> / ${String(scenes.length).padStart(2, '0')}`;
     }
     // 점
@@ -1203,20 +1224,20 @@ textarea { resize: vertical; }
     labBR.textContent = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
     prog.style.width = px(W * t / DUR);
     frame.style.opacity = eo(p(t, 0, 0.6)) * endFade;
-    if (pix) {   // 구름은 칸 단위로 흐르고, 별은 깜빡이고, 아이는 박자에 맞춰 걷다 뛴다
+    if (pix && curTheme === 'pixel') {   // 구름은 칸 단위로 흐르고, 별은 깜빡이고, 아이는 박자에 맞춰 걷다 뛴다
       pix.clouds.forEach(c => { c.e.style.transform = `translateX(${Math.round(((t * c.sp) % (W * .4)) / (U * .9)) * U * .9}px)`; });
       pix.stars.forEach(st => { st.e.style.opacity = (Math.floor(t * 3 + st.i * 1.7) % 4 === 0) ? .15 : .55; });
       const bt = 60 / BPM, k = (t % bt) / bt, hop = Math.sin(k * Math.PI) * 1.6 * U * (t > bt * 4 && t < endHit ? 1 : 0.3);
       place(pix.kid, S.x + ((t * 7 * U) % (S.w - 6 * U)), pix.y0 - Math.round(hop / (U * .7)) * U * .7); pix.kid.style.opacity = endFade;
       dot.firstChild.style.transform = `scaleX(${[1, .6, .2, .6][Math.floor(t * 8) % 4]})`;
     }
-    if (leak) { leak.style.transform = `translateX(${Math.sin(t * 0.33) * W * 0.2}px)`; leak.style.opacity = (0.45 + 0.3 * Math.sin(t * 0.7 + 1)) * endFade; }
+    if (leak && curTheme === 'cinema') { leak.style.transform = `translateX(${Math.sin(t * 0.33) * W * 0.2}px)`; leak.style.opacity = (0.45 + 0.3 * Math.sin(t * 0.7 + 1)) * endFade; }
     stage.style.setProperty('--fade', endFade);
     stage.querySelectorAll('.scene').forEach(sc => { if (sc.style.display === 'block' && t > DUR - 0.5) sc.style.opacity = String(+sc.style.opacity * endFade); });
   };
 
   // 오른쪽 아래 라벨 자리(글자 너비를 알아야 해서 READY 에서)
-  const placeRight = (e, y) => place(e, S.x + S.w - e.offsetWidth, y);
+  const placeRight = (e, y) => css(e, { left: 'auto', right: px(W - S.x - S.w), top: px(y) });   // 스타일마다 글꼴 너비가 달라 오른쪽에 붙인다
 
   // 겹침 · 넘침 점검: 장면마다 다 나온 순간을 보고, 안전 영역을 넘거나 글 덩어리가 겹치면 알린다
   const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', hangul: '한글 조립', end: '마무리' };
@@ -1247,7 +1268,7 @@ textarea { resize: vertical; }
     await document.fonts.ready;
     await Promise.all(scenes.map(s => s.prepare ? s.prepare().catch(e => { s.root.innerHTML = ''; const d = s.dur; Object.assign(s, T.oops(s.sc, s.root, e)); s.dur = d; }) : null));   // 사진이 다 읽힌 뒤 잰다
     for (const s of scenes) {
-      s.root.style.display = 'block';
+      applyTheme(s.STY); s.root.style.display = 'block';
       try { s.measure(); } catch (e) { s.dotIn = s.dotOut = { x: S.x + S.w / 2, y: S.y + S.h / 2 }; s.update = () => {}; s.dotAt = () => s.dotIn; console.warn('장면', s.i + 1, e); }
       s.root.style.display = 'none';
     }
@@ -1340,7 +1361,7 @@ textarea { resize: vertical; }
       else if (kind === 'stamp') { I.kick(t, 0.7); noise(t, 0.12, filt(vca(fx, t, 0.001, 0.1, 0.35), 900)); I.rim(t + 0.01, 0.12, fx); }
       else if (kind === 'end') { I.bell(t, SC[5], 2.4, 0.13); I.bell(t + 0.08, SC[8], 2.4, 0.08); }
     }
-    if (CINE) SCENES.forEach((s, i) => { if (i) I.boom(s.t0 + 0.05, 0.5); });   // 장면이 바뀔 때마다 낮게 쾅
+    SCENES.forEach((s, i) => { if (i && ((L.scenes[i] && L.scenes[i].style) || L.style || L.theme) === 'cinema') I.boom(s.t0 + 0.05, 0.5); });   // 장면이 바뀔 때마다 낮게 쾅
     // 녹음(선생님 목소리) — 장면 시작 0.35초 뒤 · 말하는 동안 배경음을 낮춘다
     for (let i = 0; i < L.scenes.length; i++) {
       const sc = L.scenes[i]; if (!sc.voiceData) continue;
@@ -1413,7 +1434,7 @@ textarea { resize: vertical; }
   }
 })();
 </script>
-<script>window.START_LESSON = {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}; window.EXAMPLES = [{"name": "사회 · 조선 전기의 흐름", "lesson": {"title": "조선 전기의 흐름", "subject": "사회", "unit": "중학 역사 · 조선", "ratio": "9:16", "mood": "calm", "scenes": [{"type": "title", "title": "조선, 처음 50년", "sub": "나라를 세우고 글자를 만들기까지"}, {"type": "timeline", "title": "연표", "events": [["1392", "조선 건국"], ["1394", "한양으로 도읍을 옮김"], ["1443", "훈민정음 창제"], ["1446", "훈민정음 반포"]]}, {"type": "compare", "left": {"title": "고려", "points": ["도읍 개경", "불교가 중심"]}, "right": {"title": "조선", "points": ["도읍 한양", "유교가 중심"]}}, {"type": "process", "title": "훈민정음이 나오기까지", "steps": ["백성이 한자를 몰라 억울한 일이 많았다", "세종이 새 글자를 만들었다 (1443)", "책으로 펴내 널리 알렸다 (1446)"]}, {"type": "end", "text": "백성을 위한 글자", "sub": "다음 시간 · 세종 때의 과학"}]}}, {"name": "국어 · 자음 하나, 뜻 하나", "lesson": {"title": "자음 하나, 뜻 하나", "subject": "국어", "unit": "초3 · 낱말의 짜임", "ratio": "16:9", "style": "ink", "mood": "calm", "scenes": [{"type": "title", "title": "자음 하나, 뜻 하나", "sub": "글자는 자음과 모음이 모여 만든다", "say": "오늘은 자음 하나만 바꿔도 뜻이 달라지는 낱말을 알아봐요."}, {"type": "hangul", "title": "첫소리만 바꾸면", "words": [["불", "타오르는 불"], ["풀", "들판의 풀"], ["뿔", "소의 뿔"]], "note": "모음 ㅜ, 받침 ㄹ 은 그대로!", "say": "불, 풀, 뿔. 첫소리 자음만 바뀌었는데 뜻이 완전히 달라져요."}, {"type": "hangul", "title": "모음만 바꾸면", "words": [["말", "달리는 말"], ["물", "마시는 물"], ["멀", "멀다의 멀"]], "say": "이번에는 가운데 모음만 바꿔 볼까요? 말, 물, 그리고 멀."}, {"type": "concept", "term": "음운", "text": "말의 뜻을 구별하는 소리의 가장 작은 단위", "keys": ["뜻을 구별하는", "가장 작은 단위"], "say": "이렇게 말의 뜻을 구별하는 소리의 가장 작은 단위를 음운이라고 해요."}, {"type": "end", "text": "소리 하나가 뜻을 바꾼다", "sub": "다음 시간 · 받침이 바뀌면?", "say": "소리 하나가 뜻을 바꾼다! 다음 시간에는 받침을 바꿔 볼게요."}]}}, {"name": "수학 · 우리 반 등교 방법", "lesson": {"title": "우리 반 등교 방법", "subject": "수학", "unit": "자료의 정리 · 막대그래프", "ratio": "9:16", "mood": "bright", "scenes": [{"type": "title", "title": "막대그래프", "sub": "한눈에 비교하기"}, {"type": "bars", "title": "우리 반 등교 방법 (명)", "items": [["걷기", 14], ["버스", 9], ["자전거", 4], ["자가용", 3]], "unit": "명", "source": "예시 자료 · 우리 반 설문으로 바꾸세요", "cursor": true, "total": true}, {"type": "concept", "label": "읽는 법", "term": "가장 긴 막대", "text": "막대가 길수록 그 항목의 수가 많다", "keys": ["막대가 길수록"]}, {"type": "end", "text": "길이로 비교한다", "sub": "다음 시간 · 꺾은선그래프"}]}}, {"name": "수학 · 일차함수의 기울기", "lesson": {"title": "일차함수의 기울기", "subject": "수학", "unit": "중2 · 일차함수", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "기울기", "sub": "가파름을 숫자로"}, {"type": "concept", "term": "기울기", "text": "x의 값이 1만큼 증가할 때 y의 값이 얼마나 증가하는지 나타내는 수", "keys": ["1만큼 증가할 때", "얼마나 증가하는지"]}, {"type": "steps", "title": "y = 2x + 1 에서", "lines": ["x = 0 \\quad\\Rightarrow\\quad y = 1", "x = 1 \\quad\\Rightarrow\\quad y = \\hl{3}", "\\text{기울기} = \\dfrac{\\hl{3} - 1}{1 - 0} = \\hl{2}"], "note": "x가 1 늘면 y는 2 는다"}, {"type": "graph", "fns": [{"f": "2*x+1", "label": "y = 2x + 1"}, {"f": "0.5*x+1", "label": "y = \\tfrac{1}{2}x + 1"}], "x": [-4, 4], "y": [-3, 7], "tri": {"fn": 0, "at": 1}, "note": "기울기가 클수록 가파르다"}, {"type": "fix", "wrong": "기울기 = $\\dfrac{x\\text{의 증가량}}{y\\text{의 증가량}}$", "right": "기울기 = $\\dfrac{y\\text{의 증가량}}{x\\text{의 증가량}}$", "why": "y가 위, x가 아래!"}, {"type": "end", "text": "기울기는 가파름의 숫자", "sub": "다음 시간 · y절편"}]}}, {"name": "과학 · 광합성", "lesson": {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}}];</script>
+<script>window.START_LESSON = {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}; window.EXAMPLES = [{"name": "사회 · 조선 전기의 흐름", "lesson": {"title": "조선 전기의 흐름", "subject": "사회", "unit": "중학 역사 · 조선", "ratio": "9:16", "mood": "calm", "scenes": [{"type": "title", "title": "조선, 처음 50년", "sub": "나라를 세우고 글자를 만들기까지"}, {"type": "timeline", "title": "연표", "events": [["1392", "조선 건국"], ["1394", "한양으로 도읍을 옮김"], ["1443", "훈민정음 창제"], ["1446", "훈민정음 반포"]]}, {"type": "compare", "left": {"title": "고려", "points": ["도읍 개경", "불교가 중심"]}, "right": {"title": "조선", "points": ["도읍 한양", "유교가 중심"]}}, {"type": "process", "title": "훈민정음이 나오기까지", "steps": ["백성이 한자를 몰라 억울한 일이 많았다", "세종이 새 글자를 만들었다 (1443)", "책으로 펴내 널리 알렸다 (1446)"]}, {"type": "end", "text": "백성을 위한 글자", "sub": "다음 시간 · 세종 때의 과학"}]}}, {"name": "국어 · 자음 하나, 뜻 하나", "lesson": {"title": "자음 하나, 뜻 하나", "subject": "국어", "unit": "초3 · 낱말의 짜임", "ratio": "16:9", "style": "ink", "mood": "calm", "scenes": [{"type": "title", "title": "자음 하나, 뜻 하나", "sub": "글자는 자음과 모음이 모여 만든다", "say": "오늘은 자음 하나만 바꿔도 뜻이 달라지는 낱말을 알아봐요."}, {"type": "hangul", "title": "첫소리만 바꾸면", "words": [["불", "타오르는 불"], ["풀", "들판의 풀"], ["뿔", "소의 뿔"]], "note": "모음 ㅜ, 받침 ㄹ 은 그대로!", "say": "불, 풀, 뿔. 첫소리 자음만 바뀌었는데 뜻이 완전히 달라져요."}, {"type": "hangul", "title": "모음만 바꾸면", "words": [["말", "달리는 말"], ["물", "마시는 물"], ["멀", "멀다의 멀"]], "say": "이번에는 가운데 모음만 바꿔 볼까요? 말, 물, 그리고 멀."}, {"type": "concept", "term": "음운", "text": "말의 뜻을 구별하는 소리의 가장 작은 단위", "keys": ["뜻을 구별하는", "가장 작은 단위"], "say": "이렇게 말의 뜻을 구별하는 소리의 가장 작은 단위를 음운이라고 해요."}, {"type": "end", "text": "소리 하나가 뜻을 바꾼다", "sub": "다음 시간 · 받침이 바뀌면?", "say": "소리 하나가 뜻을 바꾼다! 다음 시간에는 받침을 바꿔 볼게요."}]}}, {"name": "수학 · 우리 반 등교 방법", "lesson": {"title": "우리 반 등교 방법", "subject": "수학", "unit": "자료의 정리 · 막대그래프", "ratio": "9:16", "mood": "bright", "scenes": [{"type": "title", "title": "막대그래프", "sub": "한눈에 비교하기"}, {"type": "bars", "title": "우리 반 등교 방법 (명)", "items": [["걷기", 14], ["버스", 9], ["자전거", 4], ["자가용", 3]], "unit": "명", "source": "예시 자료 · 우리 반 설문으로 바꾸세요", "cursor": true, "total": true}, {"type": "concept", "label": "읽는 법", "term": "가장 긴 막대", "text": "막대가 길수록 그 항목의 수가 많다", "keys": ["막대가 길수록"]}, {"type": "end", "text": "길이로 비교한다", "sub": "다음 시간 · 꺾은선그래프"}]}}, {"name": "수학 · 일차함수의 기울기", "lesson": {"title": "일차함수의 기울기", "subject": "수학", "unit": "중2 · 일차함수", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "기울기", "sub": "가파름을 숫자로"}, {"type": "concept", "term": "기울기", "text": "x의 값이 1만큼 증가할 때 y의 값이 얼마나 증가하는지 나타내는 수", "keys": ["1만큼 증가할 때", "얼마나 증가하는지"]}, {"type": "steps", "title": "y = 2x + 1 에서", "lines": ["x = 0 \\quad\\Rightarrow\\quad y = 1", "x = 1 \\quad\\Rightarrow\\quad y = \\hl{3}", "\\text{기울기} = \\dfrac{\\hl{3} - 1}{1 - 0} = \\hl{2}"], "note": "x가 1 늘면 y는 2 는다"}, {"type": "graph", "fns": [{"f": "2*x+1", "label": "y = 2x + 1"}, {"f": "0.5*x+1", "label": "y = \\tfrac{1}{2}x + 1"}], "x": [-4, 4], "y": [-3, 7], "tri": {"fn": 0, "at": 1}, "note": "기울기가 클수록 가파르다"}, {"type": "fix", "wrong": "기울기 = $\\dfrac{x\\text{의 증가량}}{y\\text{의 증가량}}$", "right": "기울기 = $\\dfrac{y\\text{의 증가량}}{x\\text{의 증가량}}$", "why": "y가 위, x가 아래!"}, {"type": "end", "text": "기울기는 가파름의 숫자", "sub": "다음 시간 · y절편"}]}}, {"name": "과학 · 광합성", "lesson": {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}}, {"name": "특별편 · 점 하나의 모험", "lesson": {"title": "점 하나의 모험", "subject": "특별편", "unit": "점 하나의 모험", "ratio": "16:9", "mood": "bright", "scenes": [{"type": "title", "kicker": "PEACE CLASS 특별편", "title": "점 하나의 모험", "sub": "오늘, 열한 개의 세계를 건넌다", "style": "dark"}, {"type": "fix", "label": "속보", "label2": "정정 보도", "wrong": "점은 그냥 마침표다", "right": "점은 수업을 끌고 다닌다", "why": "본지는 앞선 보도를 바로잡습니다", "stamp": "오보 정정", "style": "light"}, {"type": "steps", "title": "칠판 앞의 진실", "tex": false, "keep": true, "lines": ["1교시 · 졸리다", "2교시 · 더 졸리다", "4교시 · [[급식 냄새]]에 눈이 번쩍"], "note": "그래도 판서는 계속된다", "style": "board"}, {"type": "compare", "left": {"title": "필기한 날", "points": ["시험 전날 마음이 평화롭다", "형광펜 색이 예쁘다"]}, "right": {"title": "안 한 날", "points": ["친구 공책을 빌리러 간다", "내 글씨를 내가 못 읽는다"]}, "vs": "vs", "style": "note"}, {"type": "bars", "title": "점이 좋아하는 것 (표)", "items": [["형광펜", 12], ["마침표", 7], ["쉬는 시간", 21], ["숙제", 1]], "unit": "표", "source": "조사: 점 혼자 · 응답 1명", "cursor": true, "total": true, "style": "pop"}, {"type": "graph", "fns": [{"f": "-(x-2.5)**2+9", "label": "수업 집중력"}], "x": [0, 6], "y": [0, 10], "points": [[2.5, 9, "최고"], [5.5, 0, "종 치기 1분 전"]], "note": "시작 15분이 황금 시간", "style": "grid"}, {"type": "process", "title": "완벽한 지각 방지 설계도", "steps": ["알람 다섯 개 맞추기", "다섯 개 다 끄기", "다시 눈 감기", "교문 앞 전력 질주"], "style": "night"}, {"type": "hangul", "title": "점 하나 차이", "words": [["님", "그리운 사람"], ["남", "모르는 사람"]], "note": "님에 점 하나 찍으면 남", "style": "ink"}, {"type": "timeline", "title": "점의 하루", "events": [["7:00", "눈 뜸"], ["9:00", "제목 옆에 착지"], ["12:30", "급식 줄 맨 앞"], ["16:00", "형광펜으로 변신"]], "style": "craft"}, {"type": "concept", "label": "LEVEL UP", "term": "보너스 스테이지", "text": "점을 끝까지 따라온 사람은 오늘 수업의 핵심을 이미 다 본 사람이다", "keys": ["핵심을 이미 다 본 사람"], "style": "pixel"}, {"type": "end", "text": "다음 수업, 점이 돌아온다", "sub": "2교시 개봉 · 졸면 안 보임", "style": "cinema"}], "style": "dark"}}];</script>
 <script>/* 수업 영상 스튜디오 — 선생님이 스타일을 눈으로 고르고, 시나리오를 화면에서 고치고, 수업용 파일로 저장한다.
  * 이 파일 하나에 엔진 · 글꼴 · 수식이 다 들어 있다(인터넷 · 설치 없음).
  */
@@ -1482,8 +1503,13 @@ textarea { resize: vertical; }
   const playBtn = h('button', { class: 'play', onclick: () => toggle() }, '▶ 재생');
   const timeEl = h('span', { class: 'time' }, '0:00');
   const qaBox = h('div', { class: 's-qa' });
+  let onlyScene = false;
+  const scopeBox = h('div', { class: 'scope' },
+    h('label', {}, h('input', { type: 'radio', name: 'scope', checked: true, onchange: () => { onlyScene = false; refreshGallery(); } }), ' 수업 전체에'),
+    h('label', {}, h('input', { type: 'radio', name: 'scope', onchange: () => { onlyScene = true; refreshGallery(); } }), ' 지금 장면에만'),
+    h('button', { class: 'linkbtn', onclick: () => { L.scenes.forEach(x => delete x.style); changed(true); renderLeft(); refreshGallery(); } }, '장면별 스타일 모두 지우기'));
   right.append(
-    h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '지금 고른 장면이 스타일마다 어떻게 보이는지')), gallery),
+    h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '지금 고른 장면이 스타일마다 어떻게 보이는지 · 장면마다 다르게 해도 돼요')), scopeBox, gallery),
     h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox));
 
   function renderAll() { renderLeft(); refresh(true); }
@@ -1520,6 +1546,8 @@ textarea { resize: vertical; }
         h('button', { title: '아래로', onclick: e => { e.stopPropagation(); move(i, 1); } }, '↓'),
         h('button', { title: '복제', onclick: e => { e.stopPropagation(); L.scenes.splice(i + 1, 0, clone(sc)); cur = i + 1; renderAll(); } }, '⧉'),
         h('button', { title: '지우기', onclick: e => { e.stopPropagation(); if (L.scenes.length > 1 && confirm(`${i + 1}번 장면(${T.name})을 지울까요?`)) { L.scenes.splice(i, 1); cur = Math.min(cur, L.scenes.length - 1); renderAll(); } } }, '✕'))));
+    card.append(row('이 장면 스타일', h('select', { class: 'stsel', onchange: e => { if (e.target.value) sc.style = e.target.value; else delete sc.style; changed(true); markCur(); refreshGallery(); } },
+      h('option', { value: '' }, `수업 스타일대로 (${(PC.STYLES.find(x => x.id === (L.style || 'dark')) || PC.STYLES[0]).name})`), ...PC.STYLES.map(x => h('option', { value: x.id, selected: sc.style === x.id }, x.name)))));
     T.fields.forEach(([path, label, kind, extra, keys]) => card.append(field(sc, path, label, kind, extra, keys)));
     card.append(voiceField(sc, i));
     card.append(h('details', { class: 'more' }, h('summary', {}, '길이'),
@@ -1770,10 +1798,15 @@ textarea { resize: vertical; }
   async function drawGallery() {
     gallery.innerHTML = '';
     const sc = L.scenes[cur]; if (!sc) return;
-    const one = { ...clone(L), scenes: [clone(sc)] };
+    const one = { ...clone(L), scenes: [clone(sc)] }; delete one.scenes[0].style;
     for (const S of PC.STYLES) {
       const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
-      const card = h('button', { class: 'thumb' + ((L.style || 'dark') === S.id ? ' on' : ''), onclick: () => { L.style = S.id; changed(true); } }, holder, h('b', {}, S.name), h('small', {}, S.desc));
+      const eff = sc.style || L.style || 'dark';
+      const card = h('button', { class: 'thumb' + (eff === S.id ? ' on' : ''), onclick: () => {
+        if (onlyScene) { if (S.id === (L.style || 'dark')) delete sc.style; else sc.style = S.id; }
+        else { L.style = S.id; }
+        changed(true); renderLeft(); refreshGallery();
+      } }, holder, h('b', {}, S.name), h('small', {}, S.desc));
       gallery.append(card);
       try {
         const g = PC.mount(st, { ...one, style: S.id });

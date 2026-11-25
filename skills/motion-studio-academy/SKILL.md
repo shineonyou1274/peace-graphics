@@ -10,7 +10,7 @@ description: >
   "그래프 영상" · "국어 · 영어 · 사회 수업 영상" · "가정통신문 쇼츠" · "교사 연수".
   영상을 실제로 만들지는 않는다 — 만들 준비가 되면 motion-studio(뭘 만들지 모르면 motion-plan)로 넘긴다.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   based_on: "motion-studio.4ai.md 문서판 v1 · 2026-11-23 (motion-studio 0.33.19 · motion-plan 0.4.0 · motion-3d 0.5.4 기준)"
 ---
 

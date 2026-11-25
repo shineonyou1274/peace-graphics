@@ -9,13 +9,17 @@
   const SUBJ_DEEP = { '수학': '#3a7d00', '과학': '#0077b6', '국어': '#d6336c', '영어': '#d97706', '사회': '#6741d9' };
   // 스타일마다 글꼴 · 강조 모양 · 점 · 장면 넘김 · 장식이 다르다(색만 바꾸지 않는다)
   const STYLES = [
-    { id: 'dark', name: '형광', desc: '검정 · 형광 막대 · 빛나는 점', acc: s => SUBJ[s] || '#d7ff00', tr: 'rise' },
-    { id: 'light', name: '신문', desc: '명조 제목 · 빨간 밑줄 · 지면처럼 왼쪽 정렬', light: true, acc: () => '#c8102e', tr: 'page' },
+    { id: 'dark', name: '형광', desc: '검정 · 형광 막대 · 빛나는 점 · 박자 쾅', acc: s => SUBJ[s] || '#d7ff00', tr: 'rise', beat: true },
+    { id: 'light', name: '신문', desc: '명조 제목 · 빨간 밑줄 · 도장 쾅', light: true, acc: () => '#c8102e', tr: 'page', stamp: true },
     { id: 'board', name: '칠판', desc: '굵은 분필 글씨 · 분필 결 · 빗금 칠 · 지우개 자국', acc: () => '#ffe066', tr: 'erase' },
     { id: 'note', name: '공책', desc: '둥근 제목 · 형광 마커 · 포스트잇', light: true, acc: () => '#2f5bd3', tr: 'flip' },
-    { id: 'pop', name: '팝', desc: '노랑 · 굵은 테두리 · 통통 튀는 움직임', light: true, acc: () => '#ff3d8b', tr: 'pop', bounce: true },
+    { id: 'pop', name: '팝', desc: '노랑 · 굵은 테두리 · 통통 튀는 움직임 · 박자 쾅', light: true, acc: () => '#ff3d8b', tr: 'pop', bounce: true, beat: true },
     { id: 'grid', name: '모눈', desc: '모눈종이 · 상자 강조 · 수학 · 과학 그래프', light: true, acc: s => SUBJ_DEEP[s] || '#0077b6', tr: 'fade' },
     { id: 'night', name: '청사진', desc: '설계도 · 외곽선 제목 · 점선 상자 · 십자 점', acc: () => '#ffd166', tr: 'wipe' },
+    { id: 'ink', name: '먹', desc: '한지 · 붓글씨 · 먹 번짐 · 붉은 낙관', light: true, acc: () => '#b8322a', tr: 'ink', seal: true },
+    { id: 'craft', name: '종이 공작', desc: '크라프트지 · 오린 색종이 · 초당 12장 뚝뚝', light: true, acc: () => '#e63946', tr: 'paper', steps: 12 },
+    { id: 'pixel', name: '픽셀', desc: '도트 글꼴 · 8비트 소리 · 블록 넘김', acc: () => '#ffec27', tr: 'pixel', steps: 15, chip: true, beat: true },
+    { id: 'cinema', name: '예고편', desc: '검은 띠 · 빛 번짐 · 천천히 다가가다 쾅', acc: () => '#f4c76b', tr: 'cinema', beat: true },
   ];
   const styleOf = L => STYLES.find(s => s.id === (L.style || L.theme)) || STYLES[0];
 
@@ -59,7 +63,7 @@
   const wipe = (e, k) => { e.style.clipPath = `inset(-20% ${((1 - k) * 100).toFixed(2)}% -20% -2%)`; };
 
   // ---------- 무대 ----------
-  stage.innerHTML = ''; stage.className = `pc-stage theme-${STY.id}${STY.light ? ' pc-light' : ''}`;
+  stage.innerHTML = ''; stage.className = `pc-stage theme-${STY.id}${STY.light ? ' pc-light' : ''}${R ? ' r916' : ''}`;
   css(stage, { width: px(W), height: px(H) });
   stage.style.setProperty('--acc', ACC); stage.style.setProperty('--bad', BAD); stage.style.setProperty('--u', px(U));
   const HITS = [], TEXTS = [];
@@ -93,7 +97,27 @@
       + `<rect width="${W}" height="${H}" filter="url(#pc-dust)" opacity=".3"/>${smear}`
       + `<g stroke="#fff" stroke-width="${.9 * U}" stroke-linecap="round" fill="none" opacity=".035" filter="url(#pc-blur)"><path d="M${.08 * W} ${.9 * H} q ${.1 * W} ${-.05 * H} ${.22 * W} ${-.01 * H}"/><path d="M${.7 * W} ${.12 * H} q ${.08 * W} ${.04 * H} ${.2 * W} 0"/></g></svg>`;
   }
+  if (STY.id === 'ink') {
+    // 먹: 획 가장자리가 한지에 번진다 · 한지 섬유
+    stage.insertAdjacentHTML('beforeend', '<svg width="0" height="0" style="position:absolute"><filter id="pc-ink" x="-5%" y="-10%" width="110%" height="120%">'
+      + '<feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="5" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="4" xChannelSelector="R" yChannelSelector="G" result="d"/>'
+      + '<feGaussianBlur in="d" stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="d"/></feMerge></filter></svg>');
+    const bg = el('div', 'inkbg', null); stage.insertBefore(bg, stage.firstChild);
+    bg.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><filter id="pc-fiber" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006 0.09" numOctaves="3" seed="11"/><feColorMatrix type="matrix" values="0 0 0 0 .55  0 0 0 0 .48  0 0 0 0 .38  0 0 0 -1.6 1.0"/></filter><rect width="${W}" height="${H}" filter="url(#pc-fiber)" opacity=".22"/>`
+      + `<filter id="pc-wash"><feGaussianBlur stdDeviation="${6 * U}"/></filter><ellipse cx="${.86 * W}" cy="${.84 * H}" rx="${.22 * W}" ry="${.12 * H}" fill="#000" opacity=".05" filter="url(#pc-wash)"/></svg>`;
+  }
+  let leak = null;
+  if (STY.id === 'cinema') {
+    // 예고편: 위아래 검은 띠 · 빛 번짐(시간에 따라 천천히 흐른다)
+    leak = el('div', 'leak', stage);
+    const bh = R ? 9 * U : 6.5 * U; const bt = el('div', 'lbox', stage); place(bt, 0, 0, W, bh); const bb = el('div', 'lbox', stage); place(bb, 0, H - bh, W, bh);
+  }
   const dot = el('div', 'dot', stage);
+  // 박자마다 쾅: 배경음 박자(분위기마다 빠르기)에 맞춰 장면이 살짝 튄다
+  const BPM = { calm: 84, bright: 100, serious: 70 }[L.mood || 'calm'] || 84, BT = 60 / BPM;
+  const beatOn = L.beat === 'on' || (L.beat !== 'off' && !!STY.beat);
+  const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
+  const stamp = (parent, text, cls = '') => { const e = el('div', 'stamp ' + cls, parent, text); return e; };
 
   // ================= 장면 틀 =================
   const T = {};
@@ -106,14 +130,19 @@
     const ti = el('div', 'big', col); rich(ti, sc.title); css(ti, { fontSize: px((sc.size || (R ? 13 : 13.5)) * U) });
     const sub = sc.sub ? el('div', 'pen', col, sc.sub) : null; if (sub) css(sub, { fontSize: px(6.2 * U) });
     TEXTS.push(kick.textContent, plain(sc.title)); if (sc.sub) TEXTS.push(sc.sub);
-    let b; const dur = sc.dur || (sc.sub ? 4.6 : 3.6);
+    let b; const dur = sc.dur || (sc.sub ? 4.6 : 3.6) + (STY.seal ? 0.6 : 0);
+    const seal = STY.seal ? stamp(root, (L.subject || '수업').slice(0, 2), 'seal') : null, tSeal = sub ? 2.7 : 1.7;
     return {
-      dur, hits: [[0.1, 'pop'], [0.45, 'sweep'], ...(sub ? [[1.55, 'write']] : [])],
-      measure() { b = box(ti); this.dotIn = { x: b.x - 2.5 * U, y: b.y + b.h * .52 }; this.dotOut = { x: b.x + b.w + 2.5 * U, y: b.y + b.h * .52 }; },
+      dur, hits: [[0.1, 'pop'], [0.45, 'sweep'], ...(sub ? [[1.55, 'write']] : []), ...(seal ? [[tSeal, 'stamp']] : [])],
+      measure() {
+        b = box(ti); this.dotIn = { x: b.x - 2.5 * U, y: b.y + b.h * .52 }; this.dotOut = { x: b.x + b.w + 2.5 * U, y: b.y + b.h * .52 };
+        if (seal) { place(seal, Math.min(S.x + S.w - 8 * U, b.x + b.w + 5.5 * U), b.y + b.h - 8 * U); }
+      },
       update(lt) {
         kick.style.opacity = eo(p(lt, 0.1, 0.6)); kick.style.letterSpacing = `${lerp(.9, .38, eo(p(lt, 0.1, 0.9)))}em`;
         wipe(ti, eio(p(lt, 0.45, 1.45)));
         if (sub) wipe(sub, p(lt, 1.55, 2.55));
+        if (seal) { const k = p(lt, tSeal - 0.12, tSeal + 0.1); seal.style.opacity = k > 0 ? 1 : 0; seal.style.transform = `rotate(-6deg) scale(${lerp(2.2, 1, eio(k))})`; }
       },
       dotAt(lt) { const k = eio(p(lt, 0.45, 1.45)); return { x: lerp(this.dotIn.x, this.dotOut.x, k), y: this.dotIn.y, s: back(p(lt, 0.05, 0.4)) }; },
     };
@@ -272,7 +301,7 @@
 
   // 5) 막대 그래프: 막대가 차례로 자라고 숫자가 세어 오른다. 점은 막대 꼭대기를 건너뛰다 가장 큰 막대에 앉는다
   T.bars = (sc, root) => {
-    const tt = el('div', 'abs qa', root); css(tt, { fontWeight: 900, fontSize: px((R ? 5.6 : 4.6) * U) }); place(tt, S.x, S.y, S.w); rich(tt, sc.title || ''); TEXTS.push(plain(sc.title || ''));
+    const tt = el('div', 'abs qa', root); css(tt, { fontWeight: 900, fontSize: px((R ? 5.6 : 4.6) * U) }); place(tt, S.x, S.y, S.w - (sc.total ? 22 * U : 0)); rich(tt, sc.title || ''); TEXTS.push(plain(sc.title || ''));
     const items = sc.items, n = items.length, max = Math.max(...items.map(i => +i[1]));
     const A = { x: S.x, y: S.y + 12 * U, w: S.w, h: S.h - 12 * U - 7 * U }, base = A.y + A.h;
     const slot = A.w / n, bw = Math.min(slot * .58, 18 * U);
@@ -287,9 +316,18 @@
     });
     const src = sc.source ? el('div', 'src', root, sc.source) : null; if (src) { place(src, S.x, base + 6.5 * U, S.w); src.style.textAlign = 'right'; TEXTS.push(sc.source); }
     const mi = bars.findIndex(b => b.v === max), tm = bars.at(-1).at + 1.1;
-    const dur = sc.dur || tm + 2.2;
+    // 대시보드: 합계 카드가 숫자를 세고, 커서가 가장 큰 막대를 눌러 값을 띄운다
+    const sum = items.reduce((a, i) => a + (+i[1] || 0), 0);
+    let tot = null, totV = null;
+    if (sc.total) { tot = el('div', 'abs qa kpi', root); place(tot, S.x + S.w - 20 * U, S.y, 20 * U); const tl = el('div', null, tot, '합계'); css(tl, { fontSize: px(1.8 * U), color: 'var(--dim)', letterSpacing: '.2em' }); totV = el('div', null, tot, '0'); css(totV, { fontFamily: "'ANTON','KR'", fontSize: px(5 * U), lineHeight: 1 }); TEXTS.push(`합계 ${sum}${sc.unit || ''}`); }
+    let cur = null, ring = null, tip = null; const tC = tm + 0.9;
+    if (sc.cursor) {
+      cur = el('div', 'abs cursor', root); cur.innerHTML = `<svg width="${3.4 * U}" height="${4.6 * U}" viewBox="0 0 17 23"><path d="M1 1 L1 18 L5.5 14 L8.6 21 L11.6 19.6 L8.6 12.8 L14.5 12.8 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+      ring = el('div', 'abs ring', root); tip = el('div', 'abs tip', root, `${items[mi][0]} ${fmt(max, items[mi][1])}${sc.unit || ''}`);
+    }
+    const dur = sc.dur || (cur ? tC + 2.4 : tm + 2.2);
     return {
-      dur, hits: [[0.2, 'rise'], [0.45, 'draw'], ...bars.map(b => [b.at, 'grow']), [tm, 'mark']],
+      dur, hits: [[0.2, 'rise'], [0.45, 'draw'], ...bars.map(b => [b.at, 'grow']), [tm, 'mark'], ...(cur ? [[tC, 'tick']] : [])],
       measure() { this.dotIn = { x: A.x, y: base }; this.dotOut = bars[mi].top; },
       update(lt) {
         tt.style.opacity = eo(p(lt, 0.2, 0.6)); line.style.transform = `scaleX(${eio(p(lt, 0.45, 1.0))})`;
@@ -299,6 +337,13 @@
           const hk = eo(p(lt, tm, tm + 0.5)); b.b.style.background = i === mi ? `color-mix(in srgb, ${ACC} ${hk * 100}%, var(--ink))` : 'var(--ink)'; b.b.style.opacity = i === mi ? 1 : lerp(1, .35, hk); b.val.style.color = i === mi && hk > .5 ? ACC : 'var(--ink)';
         });
         if (src) src.style.opacity = eo(p(lt, tm, tm + 0.6));
+        if (tot) { const k = clamp(p(lt, bars[0].at, bars.at(-1).at + 0.75)); totV.textContent = fmt(sum * eo(k), items[0][1]) + (sc.unit || ''); tot.style.opacity = eo(p(lt, 0.3, 0.8)); }
+        if (cur) {
+          const a = { x: S.x + S.w * .96, y: base + 3 * U }, b = { x: bars[mi].cx + U, y: base - bars[mi].h * .5 }, k = eio(p(lt, tm + 0.1, tC - 0.1)), q = arc(a, b, k, 3 * U);
+          cur.style.opacity = eo(p(lt, tm, tm + 0.3)); place(cur, q.x, q.y); const press = p(lt, tC - 0.06, tC + 0.12); cur.style.transform = `scale(${1 - 0.18 * Math.sin(press * Math.PI)})`;
+          const rk = p(lt, tC, tC + 0.6); place(ring, b.x - 3 * U, b.y - 3 * U, 6 * U, 6 * U); ring.style.opacity = rk > 0 && rk < 1 ? 1 - rk : 0; ring.style.transform = `scale(${0.3 + rk * 1.5})`;
+          const tk = eo(p(lt, tC + 0.1, tC + 0.45)); place(tip, bars[mi].cx + bw / 2 + 2 * U, base - bars[mi].h * .5 - 6 * U); tip.style.opacity = tk; tip.style.transform = `translateX(${(1 - tk) * -U}px)`;
+        }
       },
       dotAt(lt) {
         let pt = this.dotIn;
@@ -399,15 +444,17 @@
     const chk = sv('path', { class: 'curve', stroke: ACC, 'stroke-width': 12 }, svg);
     const tS = 1.3, tX = 1.75, tR = 2.6, tOk = 3.25, tW = 3.9;
     const dur = sc.dur || (why ? tW + 2.8 : tOk + 2.0);
+    const stp = STY.stamp ? stamp(root, sc.stamp || '정답') : null, tSt = tOk + 0.45;
     let wb, rb, sx;
     return {
-      dur, hits: [[0.2, 'rise'], [tS, 'strike'], [tX, 'wrong'], [tR, 'rewind'], [tOk, 'right'], ...(why ? [[tW, 'write']] : [])],
+      dur, hits: [[0.2, 'rise'], [tS, 'strike'], [tX, 'wrong'], [tR, 'rewind'], [tOk, 'right'], ...(why ? [[tW, 'write']] : []), ...(stp ? [[tSt, 'stamp']] : [])],
       measure() {
         wb = box(wrong); rb = box(right); sx = { x: wb.x + wb.w + 4 * U, y: wb.y + wb.h * .5 }; const s = 2.4 * U;
         strike.setAttribute('d', `M${wb.x - U} ${wb.y + wb.h * .55}L${wb.x + wb.w + U} ${wb.y + wb.h * .5}`);
         x1.setAttribute('d', `M${sx.x - s} ${sx.y - s}L${sx.x + s} ${sx.y + s}`); x2.setAttribute('d', `M${sx.x + s} ${sx.y - s}L${sx.x - s} ${sx.y + s}`);
         const c = { x: rb.x + rb.w + 4 * U, y: rb.y + rb.h * .5 }; chk.setAttribute('d', `M${c.x - s} ${c.y}L${c.x - s * .3} ${c.y + s * .8}L${c.x + s * 1.2} ${c.y - s}`);
         this.chk = { x: c.x + s * 1.2, y: c.y - s };
+        if (stp) { const sw = stp.offsetWidth || 14 * U, sh = stp.offsetHeight || 7 * U; let x = this.chk.x + 3 * U; if (x + sw > S.x + S.w) x = rb.x - sw - 3 * U; if (x < S.x) x = rb.x + rb.w - sw; place(stp, x, rb.y + rb.h / 2 - sh / 2 - (x === rb.x + rb.w - sw ? sh + U : 0)); }
         this.dotIn = { x: wb.x - 3 * U, y: wb.y + wb.h * .55 }; this.dotOut = why ? (b => ({ x: b.x + b.w + 2 * U, y: b.y + b.h * .55 }))(box(why)) : this.chk;
         [strike, x1, x2, chk].forEach(q => { const l = q.getTotalLength(); q.dataset.l = l; q.setAttribute('stroke-dasharray', `${l} ${l}`); });
       },
@@ -417,6 +464,7 @@
         const kw = eo(p(lt, 0.2, 0.75)), kr = eio(p(lt, tR, tR + 0.55));
         css(wrong, { opacity: kw * (1 - kr), transform: `translateY(${(1 - kw) * 2 * U}px) translateX(${-kr * 14 * U}px) skewX(${kr * 18}deg)`, filter: `blur(${kr * 14}px)` });
         const ko = eo(p(lt, tOk - 0.25, tOk + 0.35)); right.style.opacity = ko; right.style.filter = `blur(${(1 - ko) * 10}px)`;
+        if (stp) { const k = p(lt, tSt - 0.12, tSt + 0.08); stp.style.opacity = k > 0 ? 1 : 0; stp.style.transform = `rotate(-11deg) scale(${lerp(2.4, 1, eio(k))})`; }
         const dash = (q, k) => q.setAttribute('stroke-dashoffset', q.dataset.l * (1 - k));
         dash(strike, eio(p(lt, tS, tS + 0.4))); strike.style.opacity = 1 - kr;
         const kx = p(lt, tX, tX + 0.3); dash(x1, eo(kx)); dash(x2, eo(p(lt, tX + 0.12, tX + 0.42))); x1.style.opacity = x2.style.opacity = 1 - kr;
@@ -556,6 +604,104 @@
     };
   };
 
+  // 12) 한글 자모 조립: 자모가 날아와 글자가 되고, 획 하나(자모 하나)가 바뀌면 뜻이 바뀐다
+  const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ', JONG = ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+  const split = ch => { const c = ch.charCodeAt(0) - 0xAC00; if (c < 0 || c > 11171) return null; return [CHO[Math.floor(c / 588)], JUNG[Math.floor((c % 588) / 28)], JONG[c % 28]]; };
+  // 자모 자리(글자 상자 안 비율): 세로 모음은 오른쪽, 가로 모음은 아래, 겹모음은 아래+오른쪽, 받침은 맨 아래
+  const slots = j => {
+    const v = j[1], vert = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅣ'.includes(v), horiz = 'ㅗㅛㅜㅠㅡ'.includes(v), hb = j[2] ? .62 : 1;
+    const P = [];
+    if (vert) { P.push([.04, .06 * hb, .5, .88 * hb]); P.push([.52, .02, .44, .94 * hb]); }
+    else if (horiz) { P.push([.22, .02, .56, .5 * hb]); P.push([.08, .5 * hb, .84, .48 * hb]); }
+    else { P.push([.06, .02, .5, .5 * hb]); P.push([.06, .44 * hb, .9, .56 * hb]); }
+    if (j[2]) P.push([.2, .64, .6, .36]);
+    return P;
+  };
+  T.hangul = (sc, root) => {
+    const words = (sc.words || []).map(w => Array.isArray(w) ? w : [w, '']).filter(w => w[0]);
+    if (!words.length) throw new Error('낱말을 넣어 주세요');
+    let tt = null; if (sc.title) { tt = el('div', 'abs kicker qa', root, sc.title); place(tt, S.x, S.y); TEXTS.push(sc.title); }
+    const maxN = Math.max(...words.map(w => [...w[0]].length));
+    const B = Math.min(R ? S.w / maxN * .92 : 26 * U, (S.w * .9) / maxN, 30 * U);
+    const cy = S.y + S.h * (R ? .4 : .44);
+    const step0 = 0.4, per = 2.9;
+    const groups = words.map(([w, mean], wi) => {
+      const chs = [...w], x0 = S.x + (R ? 0 : (S.w - chs.length * B) / 2);
+      const g = el('div', 'abs', root); place(g, 0, 0, W, H);
+      const syl = chs.map((ch, ci) => {
+        const j = split(ch), bx = x0 + ci * B, by = cy - B / 2;
+        const glyph = el('div', 'abs hg-glyph', g, ch); place(glyph, bx, by, B, B); css(glyph, { fontSize: px(B * .86), lineHeight: px(B), textAlign: 'center', fontWeight: 900 });
+        const pcs = j ? slots(j).map((r, k) => { const e = el('div', 'abs hg-piece', g, j[k]); const [rx, ry, rw, rh] = r; place(e, bx + rx * B, by + ry * B, rw * B, rh * B); css(e, { fontSize: px(Math.min(Math.min(rw, rh) * 1.4, Math.max(rw, rh) * .8) * B), lineHeight: px(rh * B), textAlign: 'center', fontWeight: 900 }); return { e, ch: j[k], k }; }) : [];
+        return { ch, j, glyph, pcs, bx, by };
+      });
+      const m = mean ? el('div', 'abs pen qa', g, mean) : null; if (m) { css(m, { fontSize: px((R ? 6 : 5.2) * U), width: px(S.w), textAlign: R ? 'left' : 'center' }); place(m, S.x, cy + B / 2 + 3 * U); }
+      TEXTS.push(w + (mean ? ' ' + mean : ''));
+      return { w, chs, syl, m, g, t0: step0 + wi * per };
+    });
+    // 바뀌는 자모 찾기(앞 낱말과 같은 자리 · 같은 순서)
+    groups.forEach((G, gi) => { if (!gi) return; const P = groups[gi - 1];
+      G.syl.forEach((s, ci) => s.pcs.forEach(pc => { const o = P.syl[ci] && P.syl[ci].pcs[pc.k]; pc.changed = !o || o.ch !== pc.ch || P.syl[ci].j[1] !== s.j[1] && pc.k === 1; }));
+      P.out = P.syl.map((s, ci) => s.pcs.map(pc => { const n = G.syl[ci] && G.syl[ci].pcs[pc.k]; return !n || n.ch !== pc.ch; })); });
+    const last = groups.at(-1).t0 + (groups.length > 1 ? 2.2 : 2.0);
+    const note = sc.note ? el('div', 'abs pen qa', root, sc.note) : null; if (note) { css(note, { fontSize: px(4.4 * U), width: px(S.w), textAlign: R ? 'left' : 'center' }); place(note, S.x, S.y + S.h - 6 * U); TEXTS.push(sc.note); }
+    const dur = sc.dur || last + (note ? 2.6 : 1.6);
+    const hits = [];
+    groups.forEach((G, gi) => {
+      if (!gi) { G.syl.forEach((s, ci) => s.pcs.forEach((pc, k) => hits.push([G.t0 + (ci * 3 + k) * 0.12, 'hop']))); hits.push([G.t0 + 1.25, 'pop']); }
+      else { hits.push([G.t0, 'rewind']); hits.push([G.t0 + 0.7, 'mark']); hits.push([G.t0 + 1.35, 'pop']); }
+    });
+    if (note) hits.push([last + 0.3, 'write']);
+    const fly = (ci, k) => { const a = (ci * 3 + k) * 2.399; return { x: Math.cos(a) * 30 * U, y: Math.sin(a) * 18 * U - 10 * U }; };
+    return {
+      dur, hits,
+      measure() {
+        const s0 = groups[0].syl[0]; this.dotIn = { x: s0.bx - 3 * U, y: cy };
+        const L2 = groups.at(-1).syl.at(-1); this.dotOut = note ? (b => ({ x: b.x + b.w + 2 * U, y: b.y + b.h * .5 }))(box(note)) : { x: L2.bx + B + 2 * U, y: cy };
+      },
+      update(lt) {
+        if (tt) tt.style.opacity = eo(p(lt, 0.1, 0.5));
+        groups.forEach((G, gi) => {
+          const nx = groups[gi + 1], tEnd = nx ? nx.t0 : Infinity;
+          const on = lt >= (gi ? G.t0 : 0) && lt < tEnd + 0.7;
+          G.g.style.display = on ? 'block' : 'none'; if (!on) return;
+          const asm = gi ? G.t0 + 1.25 : G.t0 + 1.2;   // 다시 한 글자로 합치는 때
+          G.syl.forEach((s, ci) => {
+            // 글자 한 덩어리 ↔ 자모 조각
+            const kg = eo(p(lt, asm, asm + 0.35)) * (nx ? 1 - eo(p(lt, tEnd - 0.05, tEnd + 0.1)) : 1);
+            s.glyph.style.opacity = kg; s.glyph.style.transform = `scale(${0.9 + 0.1 * kg})`;
+            const kA = eo(p(lt, asm, asm + 0.35)), leaving = nx && lt >= tEnd - 0.05;
+            s.pcs.forEach((pc, k) => {
+              let o = 0, x = 0, y = 0, sc2 = 1;
+              const out = nx && G.out && G.out[ci][k];
+              if (leaving) {   // 다음 낱말로: 바뀌는 자모만 떨어져 나간다(나머지는 다음 낱말이 같은 자리에서 이어받음)
+                if (out) { const ko = eio(p(lt, tEnd + 0.1, tEnd + 0.5)); o = 1 - ko; y = ko * 14 * U; x = ko * 4 * U; }
+              } else if (!gi) {   // 첫 낱말: 흩어진 자모가 날아와 제자리에
+                const t1 = G.t0 + (ci * 3 + k) * 0.12, f = fly(ci, k), kf = eo(p(lt, t1, t1 + 0.55));
+                o = kf * (1 - kA); x = f.x * (1 - kf); y = f.y * (1 - kf); sc2 = 0.6 + 0.4 * kf;
+              } else if (pc.changed) {   // 새 자모가 위에서 떨어져 끼워진다
+                const kd = back(p(lt, G.t0 + 0.55, G.t0 + 0.95)); o = clamp(p(lt, G.t0 + 0.5, G.t0 + 0.7)) * (1 - kA); y = (1 - kd) * -12 * U; sc2 = 1.6 - 0.6 * kd;
+              } else o = (lt >= G.t0 ? 1 : 0) * (1 - kA);
+              pc.e.style.opacity = o; pc.e.style.transform = `translate(${x}px, ${y}px) scale(${sc2})`;
+              pc.e.style.color = (gi && pc.changed) || (leaving && out) ? ACC : '';
+            });
+          });
+          if (G.m) { const km = eo(p(lt, asm + 0.15, asm + 0.6)) * (nx ? 1 - eo(p(lt, tEnd - 0.1, tEnd + 0.2)) : 1); G.m.style.opacity = km; G.m.style.transform = `translateY(${(1 - km) * 1.5 * U}px)`; }
+        });
+        if (note) wipe(note, p(lt, last + 0.3, last + 1.3));
+      },
+      dotAt(lt) {
+        let pt = this.dotIn;
+        groups.forEach((G, gi) => {
+          if (!gi) { if (lt >= G.t0) { const sL = G.syl.at(-1); pt = arc(this.dotIn, { x: sL.bx + B + 2 * U, y: cy }, eio(p(lt, G.t0 + 0.2, G.t0 + 1.4))); } return; }
+          const hit = G.syl.find(sy => sy.pcs.some(pc => pc.changed)); if (!hit || lt < G.t0 + 0.3) return;
+          pt = arc(pt, { x: hit.bx + B * .5, y: cy - B * .64 }, eio(p(lt, G.t0 + 0.3, G.t0 + 0.7)));
+        });
+        if (lt >= last + 0.2) pt = arc(pt, this.dotOut, eio(p(lt, last + 0.2, last + 0.8)));
+        return pt;
+      },
+    };
+  };
+
   // 그릴 수 없는 장면: 무엇이 빠졌는지 화면에 알린다
   T.oops = (sc, root, err) => {
     const c = el('div', 'abs qa', root); place(c, S.x, S.y, S.w, S.h);
@@ -586,8 +732,11 @@
     const lt = t - s.t0; let q; try { q = s.dotAt(clamp(lt, 0, s.dur)) || s.dotIn; } catch (e) { q = s.dotIn || { x: 0, y: 0 }; }
     return { x: q.x, y: q.y, s: q.s != null ? q.s : 1 };
   };
+  const endHit = (HITS.find(h => h.kind === 'end') || { t: DUR }).t;
+  const punch = t => { if (!beatOn || t < BT * 4 || t > endHit) return 0; const n = Math.floor(t / BT), ph = (t - n * BT) / BT; return Math.exp(-ph * 9) * (n % 4 === 0 ? 1 : 0.5); };
   const seek = t => {
     t = clamp(t, 0, DUR - 1e-4);
+    if (STY.steps) t = Math.floor(t * STY.steps) / STY.steps;   // 종이 공작 · 픽셀: 뚝뚝 끊기는 움직임
     for (const s of scenes) {
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
       s.root.style.display = on ? 'block' : 'none';
@@ -595,8 +744,18 @@
       try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
       const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
-      const ti = 1 - kin, rs = s.root.style; rs.opacity = kin * (1 - kout); rs.filter = ''; rs.clipPath = ''; rs.transform = '';
-      switch (STY.tr) {
+      const ti = 1 - kin, rs = s.root.style; rs.opacity = kin * (1 - kout); rs.filter = ''; rs.clipPath = ''; rs.transform = ''; rs.transformOrigin = '';
+      switch (TRK) {
+        case 'zoom': {   // 끝없는 줌: 점이 있는 곳으로 빨려 들어가고, 다음 장면은 그 점에서 열린다
+          const kz = eo(p(lt, 0, 0.45));
+          if (kout > 0) { const o = s.dotOut || { x: W / 2, y: H / 2 }; rs.transformOrigin = `${o.x}px ${o.y}px`; rs.transform = `scale(${1 + kout * kout * 6})`; rs.opacity = (1 - kout) * (1 - kout); }
+          else if (kz < 1) { const o = s.dotIn || { x: W / 2, y: H / 2 }; rs.transformOrigin = `${o.x}px ${o.y}px`; rs.transform = `scale(${0.2 + 0.8 * kz})`; rs.opacity = kz; }
+          break;
+        }
+        case 'ink': rs.filter = (ti + kout) > 0.01 ? `blur(${ti * 7 + kout * 12}px)` : ''; break;                     // 먹이 번지듯
+        case 'paper': rs.transform = `translateY(${(ti * 7 + kout * 3) * U}px) rotate(${-ti * 4 + kout * 3}deg)`; break; // 색종이를 붙였다 뗀다
+        case 'pixel': rs.opacity = 1; rs.clipPath = kout > 0 ? `inset(0 0 0 ${Math.ceil(kout * 8) / 8 * 100}%)` : (ti > 0 ? `inset(0 ${Math.ceil(ti * 8) / 8 * 100}% 0 0)` : ''); break;
+        case 'cinema': { const kc = eo(p(lt, 0, 0.7)); rs.opacity = kc * (1 - kout); rs.transform = `scale(${0.96 + 0.04 * Math.min(1, lt / (s.dur - 0.5))})`; break; }   // 검게 열렸다 닫히며 천천히 다가간다
         case 'page': rs.transform = `translateX(${(ti * 5 - kout * 5) * U}px)`; break;                    // 지면 넘기기
         case 'erase': rs.filter = kout > 0.01 ? `blur(${kout * 14}px)` : ''; rs.opacity = kin * (1 - kout * kout); break;   // 지우개
         case 'flip': rs.transform = `translateY(${(ti * 3 - kout * 6) * U}px) rotate(${-kout * 2}deg)`; break; // 공책 넘기기
@@ -605,6 +764,7 @@
         case 'wipe': rs.clipPath = kout > 0 ? `inset(0 0 0 ${kout * 100}%)` : (kin < 1 ? `inset(0 ${ti * 100}% 0 0)` : ''); rs.opacity = 1; break; // 설계도 긋기
         default: rs.transform = `translateY(${-kout * 2.4 * U}px)`; rs.filter = kout > 0.01 ? `blur(${kout * 8}px)` : '';
       }
+      const pk = punch(t); if (pk > 0.01) rs.transform = (rs.transform || '') + ` scale(${1 + 0.02 * pk})`;
       labTR.innerHTML = `<b>${String(s.i + 1).padStart(2, '0')}</b> / ${String(scenes.length).padStart(2, '0')}`;
     }
     // 점
@@ -617,6 +777,7 @@
     labBR.textContent = `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
     prog.style.width = px(W * t / DUR);
     frame.style.opacity = eo(p(t, 0, 0.6)) * endFade;
+    if (leak) { leak.style.transform = `translateX(${Math.sin(t * 0.33) * W * 0.2}px)`; leak.style.opacity = (0.45 + 0.3 * Math.sin(t * 0.7 + 1)) * endFade; }
     stage.style.setProperty('--fade', endFade);
     stage.querySelectorAll('.scene').forEach(sc => { if (sc.style.display === 'block' && t > DUR - 0.5) sc.style.opacity = String(+sc.style.opacity * endFade); });
   };
@@ -625,7 +786,7 @@
   const placeRight = (e, y) => place(e, S.x + S.w - e.offsetWidth, y);
 
   // 겹침 · 넘침 점검: 장면마다 다 나온 순간을 보고, 안전 영역을 넘거나 글 덩어리가 겹치면 알린다
-  const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', end: '마무리' };
+  const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', hangul: '한글 조립', end: '마무리' };
   const QA = () => {
     const out = [];
     for (const s of scenes) {
@@ -645,7 +806,7 @@
     return [...new Set(out)];
   };
 
-  const fontLoads = ['500 40px KR', '900 40px KR', '40px PEN', '40px ANTON', '800 40px SERIF', '40px POP', '40px ROUND', '700 40px CHALK', '40px KaTeX_Main', 'italic 40px KaTeX_Math', '40px KaTeX_Size1', '40px KaTeX_Size2', 'bold 40px KaTeX_Main', '40px KaTeX_AMS'];
+  const fontLoads = ['500 40px KR', '900 40px KR', '40px PEN', '40px ANTON', '800 40px SERIF', '40px POP', '40px ROUND', '700 40px CHALK', '700 40px PIXEL', '40px BRUSH', '40px KaTeX_Main', 'italic 40px KaTeX_Math', '40px KaTeX_Size1', '40px KaTeX_Size2', 'bold 40px KaTeX_Main', '40px KaTeX_AMS'];
   const READY = (async () => {
     const sample = TEXTS.join(' ') + '0123456789';
     await Promise.all(fontLoads.map(f => document.fonts.load(f, sample).catch(() => null)));
@@ -672,6 +833,7 @@
   const PROG = { bright: [[0, 'M'], [7, 'M'], [-3, 'm'], [5, 'M']], dark: [[0, 'm'], [-4, 'M'], [3, 'M'], [-2, 'M']] };
   const chord = (b, key) => { const [o, q] = PROG[key][b % 4]; const r = 50 + o; return [r, r + (q === 'm' ? 3 : 4), r + 7]; };
   async function renderSound(L, HITS, SCENES, DUR) {
+    const CHIP = (L.style || L.theme) === 'pixel', CINE = (L.style || L.theme) === 'cinema';   // 픽셀 = 8비트 칩 소리 · 예고편 = 낮은 쾅
     const N = Math.ceil((DUR + 1.2) * SR), ctx = new OfflineAudioContext(1, N, SR), rnd = rngOf(L.seed || 7);
     const nb = ctx.createBuffer(1, SR * 2, SR), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = rnd() * 2 - 1;
     const hz = m => 440 * 2 ** ((m - 69) / 12);
@@ -680,11 +842,11 @@
     const bed = bus(), fx = bus(), vo = bus();
     const rev = ctx.createConvolver(), irb = ctx.createBuffer(1, SR * 1.5, SR), ir = irb.getChannelData(0);
     for (let i = 0; i < ir.length; i++) ir[i] = (rnd() * 2 - 1) * Math.exp(-i / SR / 0.4) * 0.3;
-    rev.buffer = irb; const wet = ctx.createGain(); wet.gain.value = 0.2; rev.connect(wet); wet.connect(master); bed.connect(rev); fx.connect(rev);
+    rev.buffer = irb; const wet = ctx.createGain(); wet.gain.value = CHIP ? 0.04 : CINE ? 0.32 : 0.2; rev.connect(wet); wet.connect(master); bed.connect(rev); fx.connect(rev);
     const env = (g, t, a, d, pk) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
     const vca = (dest, t, a, d, pk) => { const g = ctx.createGain(); env(g, t, a, d, pk); g.connect(dest); return g; };
     const filt = (dest, f, type = 'lowpass', q = 0.7) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.connect(dest); return b; };
-    const osc = (type, f, t, d, dest, det = 0) => { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det; o.connect(dest); o.start(t); o.stop(t + d + 0.05); return o; };
+    const osc = (type, f, t, d, dest, det = 0) => { const o = ctx.createOscillator(); o.type = CHIP ? (type === 'sine' && f < 200 ? 'triangle' : 'square') : type; if (CHIP) det = 0; o.frequency.value = f; o.detune.value = det; o.connect(dest); o.start(t); o.stop(t + d + 0.05); return o; };
     const noise = (t, d, dest) => { const s = ctx.createBufferSource(); s.buffer = nb; s.loop = true; s.connect(dest); s.start(t, rnd() * 1.5); s.stop(t + d + 0.05); };
     const I = {
       pluck: (t, m, d = 0.3, g = 0.12) => { const f = filt(vca(fx, t, 0.003, d, g), 3200); osc('sawtooth', hz(m), t, d, f, -7); osc('sawtooth', hz(m), t, d, f, 7); },
@@ -697,6 +859,7 @@
       rim: (t, g, dest = bed) => { noise(t, 0.06, filt(vca(dest, t, 0.0005, 0.035, g), 2200, 'bandpass', 3)); osc('sine', 1700, t, 0.05, vca(dest, t, 0.0005, 0.025, g * 0.5)); },
       hat: (t, g) => noise(t, 0.06, filt(vca(bed, t, 0.0005, 0.035, g), 7500, 'highpass')),
       clap: (t, g) => [0, 0.012, 0.024].forEach(o => noise(t + o, 0.12, filt(vca(bed, t + o, 0.0005, 0.07, g), 1400, 'bandpass', 1.5))),
+      boom: (t, g) => { const os = ctx.createOscillator(); os.frequency.setValueAtTime(62, t); os.frequency.exponentialRampToValueAtTime(30, t + 1.4); os.connect(vca(fx, t, 0.005, 1.6, g)); os.start(t); os.stop(t + 1.8); noise(t, 0.5, filt(vca(fx, t, 0.002, 0.45, g * 0.5), 500)); },
       heart: (t, g) => [0, 0.17].forEach((o, i) => { const os = ctx.createOscillator(); os.frequency.setValueAtTime(80, t + o); os.frequency.exponentialRampToValueAtTime(45, t + o + 0.06); os.connect(vca(bed, t + o, 0.003, 0.12, g * (i ? 0.7 : 1))); os.start(t + o); os.stop(t + o + 0.3); }),
       swish: (t, d, lo, hi, g) => { const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.Q.value = 1.2; b.frequency.setValueAtTime(lo, t); b.frequency.exponentialRampToValueAtTime(hi, t + d); b.connect(vca(fx, t, d * 0.3, d * 0.7, g)); noise(t, d, b); },
       riser: (t, d, g) => { const v = ctx.createGain(); v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + d); v.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.1); v.connect(fx); const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.Q.value = 2; b.frequency.setValueAtTime(300, t); b.frequency.exponentialRampToValueAtTime(5000, t + d); b.connect(v); noise(t, d + 0.1, b); const o = ctx.createOscillator(); o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(660, t + d); const og = ctx.createGain(); og.gain.value = 0.2; o.connect(og); og.connect(v); o.start(t); o.stop(t + d + 0.12); },
@@ -740,8 +903,10 @@
       else if (kind === 'rewind') I.rewind(t - 0.1, 0.6, [SC[0], SC[4]], 0.12);
       else if (kind === 'right') [SC[5], SC[6], SC[8]].forEach((m, j) => I.bell(t + j * 0.05, m, 1.4, 0.11));
       else if (kind === 'write') I.scratch(t, 1.1, 0.05);
+      else if (kind === 'stamp') { I.kick(t, 0.7); noise(t, 0.12, filt(vca(fx, t, 0.001, 0.1, 0.35), 900)); I.rim(t + 0.01, 0.12, fx); }
       else if (kind === 'end') { I.bell(t, SC[5], 2.4, 0.13); I.bell(t + 0.08, SC[8], 2.4, 0.08); }
     }
+    if (CINE) SCENES.forEach((s, i) => { if (i) I.boom(s.t0 + 0.05, 0.5); });   // 장면이 바뀔 때마다 낮게 쾅
     // 녹음(선생님 목소리) — 장면 시작 0.35초 뒤 · 말하는 동안 배경음을 낮춘다
     for (let i = 0; i < L.scenes.length; i++) {
       const sc = L.scenes[i]; if (!sc.voiceData) continue;

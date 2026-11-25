@@ -25,11 +25,12 @@
     fix: { name: '흔한 실수', tip: '틀린 생각 → ✕ → 되감기 → 바른 생각', fields: [['label', '위 작은 글 (비우면 "흔한 실수")', 'text'], ['wrong', '틀린 말', 'text'], ['right', '바른 말', 'text'], ['why', '손글씨 까닭', 'text']], make: () => ({ wrong: '틀린 말', right: '바른 말', why: '' }) },
     steps: { name: '수식 · 풀이', tip: '한 줄씩 올라오고 바뀐 곳은 형광', fields: [['title', '위 제목', 'text'], ['lines', '한 줄씩 (수식 = LaTeX · 형광 = \\hl{…})', 'list'], ['tex', '수식으로 보기 (끄면 일반 글 · 형광 = [[…]])', 'check'], ['note', '손글씨 메모', 'text']], make: () => ({ title: '', lines: ['2x + 3 = 7', '2x = \\hl{4}', 'x = \\hl{2}'], note: '' }) },
     graph: { name: '함수 그래프', tip: '좌표축 · 곡선이 그려지고 점 · 기울기', fields: [['fns', '함수 (식 · 이름)', 'pairs', ['식  예) 2*x+1 · x**2 · sin(x)', '이름  예) y = 2x + 1'], ['f', 'label']], ['x', 'x 범위', 'range'], ['y', 'y 범위', 'range'], ['points', '점 (x · y · 이름)', 'triples', ['x', 'y', '이름 (비우면 좌표)']], ['tri', '기울기 삼각형', 'tri'], ['note', '손글씨 메모', 'text']], make: () => ({ fns: [{ f: 'x**2', label: 'y = x^2' }], x: [-4, 4], y: [-2, 10], points: [], note: '' }) },
-    bars: { name: '막대그래프', tip: '값은 출처가 있는 자료만', fields: [['title', '제목', 'text'], ['items', '항목 · 값', 'pairs', ['항목', '값']], ['unit', '단위', 'text'], ['source', '출처 · 기준 연도', 'text']], make: () => ({ title: '제목', items: [['가', 3], ['나', 5]], unit: '', source: '' }) },
+    bars: { name: '막대그래프', tip: '값은 출처가 있는 자료만 · 대시보드처럼 커서 · 합계', fields: [['title', '제목', 'text'], ['items', '항목 · 값', 'pairs', ['항목', '값']], ['unit', '단위', 'text'], ['source', '출처 · 기준 연도', 'text'], ['cursor', '커서가 가장 큰 막대를 눌러 값 띄우기 (대시보드)', 'check'], ['total', '합계 카드가 숫자를 세기 (대시보드)', 'check']], make: () => ({ title: '제목', items: [['가', 3], ['나', 5]], unit: '', source: '' }) },
     timeline: { name: '연표', tip: '선 위로 때와 일이 차례로', fields: [['title', '위 제목', 'text'], ['events', '때 · 일', 'pairs', ['때', '일']], ['scale', '연도 간격대로 띄우기', 'check']], make: () => ({ title: '연표', events: [['1392', '사건'], ['1446', '사건']] }) },
     compare: { name: '둘 비교', tip: '양쪽이 엇갈려 들어온다', fields: [['left.title', '왼쪽 제목', 'text'], ['left.points', '왼쪽 내용', 'list'], ['right.title', '오른쪽 제목', 'text'], ['right.points', '오른쪽 내용', 'list'], ['vs', '가운데 글 (비우면 vs)', 'text']], make: () => ({ left: { title: 'A', points: ['내용'] }, right: { title: 'B', points: ['내용'] } }) },
     process: { name: '과정', tip: '단계가 차례로 채워진다', fields: [['title', '위 제목', 'text'], ['steps', '단계', 'list']], make: () => ({ title: '과정', steps: ['첫째', '둘째', '셋째'] }) },
     photo: { name: '사진', tip: '사진을 넣고 짚을 곳을 눌러 이름표 달기', fields: [['src', '사진 (사진 위를 누르면 그 자리에 이름표)', 'photo'], ['title', '위 작은 글', 'text'], ['caption', '설명 (형광 = [[…]])', 'area']], make: () => ({ src: '', title: '', caption: '', pins: [] }) },
+    hangul: { name: '한글 조립', tip: '자모가 날아와 글자가 되고, 자모 하나가 바뀌면 뜻이 바뀐다', fields: [['title', '위 작은 글', 'text'], ['words', '낱말 · 뜻 (차례로 바뀜 · 같은 글자 수가 좋아요)', 'pairs', ['낱말  예) 불', '뜻  예) 타오르는 불']], ['note', '손글씨 메모', 'text']], make: () => ({ title: '자음 하나로 뜻이 바뀐다', words: [['불', '타오르는 불'], ['풀', '들판의 풀'], ['뿔', '소의 뿔']], note: '' }) },
     end: { name: '마무리', tip: '전할 것 한 문장 · 점이 마침표가 된다', fields: [['text', '마무리 한 마디 (손글씨)', 'text'], ['sub', '아래 작은 글', 'text']], make: () => ({ text: '마무리 한 마디', sub: '' }) },
   };
   const SUBJECTS = ['수학', '과학', '국어', '영어', '사회', '기타'];
@@ -83,7 +84,10 @@
         row('화면', h('select', { onchange: e => { L.ratio = e.target.value; changed(true); } }, h('option', { value: '16:9', selected: L.ratio !== '9:16' }, '16:9 수업용'), h('option', { value: '9:16', selected: L.ratio === '9:16' }, '9:16 쇼츠')))),
       h('div', { class: 'two' },
         row('학년 · 단원', h('input', { value: L.unit || '', oninput: e => { L.unit = e.target.value; changed(); } })),
-        row('소리', h('select', { onchange: e => { L.mood = e.target.value; changed(); } }, MOODS.map(([v, n]) => h('option', { value: v, selected: (L.mood || 'calm') === v }, n))))));
+        row('소리', h('select', { onchange: e => { L.mood = e.target.value; changed(); } }, MOODS.map(([v, n]) => h('option', { value: v, selected: (L.mood || 'calm') === v }, n))))),
+      h('div', { class: 'two' },
+        row('박자마다 쾅', h('select', { onchange: e => { L.beat = e.target.value; if (L.beat === 'auto') delete L.beat; changed(true); } }, [['auto', '스타일대로'], ['on', '켜기'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.beat || 'auto') === v }, n)))),
+        row('장면 넘김', h('select', { onchange: e => { L.trans = e.target.value; if (L.trans === 'style') delete L.trans; changed(true); } }, [['style', '스타일대로'], ['zoom', '끝없는 줌']].map(([v, n]) => h('option', { value: v, selected: (L.trans || 'style') === v }, n))))));
     left.append(h('h3', { class: 'step' }, '2 · 시나리오 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), info);
     L.scenes.forEach((sc, i) => left.append(sceneCard(sc, i)));
     left.append(addBox(L.scenes.length - 1));
@@ -344,7 +348,7 @@
   }
   addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); toggle(); } });
 
-  // ---------- 스타일 갤러리: 지금 장면을 스타일 7가지로 ----------
+  // ---------- 스타일 갤러리: 지금 장면을 스타일 11가지로 ----------
   let gTimer = null;
   function refreshGallery() { clearTimeout(gTimer); gTimer = setTimeout(drawGallery, 120); }
   async function drawGallery() {
@@ -405,7 +409,7 @@
       h('h4', {}, '🖥 준비물 — 설치할 것 없어요'),
       h('ul', {}, li('컴퓨터(윈도우 · 맥) + 크롬 · 엣지 · 웨일 중 하나. 이 파일을 그 브라우저로 열면 끝이에요.', '인터넷 · 로그인 · 프로그램 설치가 필요 없어요. 휴대폰 · 태블릿은 화면이 좁아 권하지 않아요.', '카카오톡 · 메일 미리보기 안에서 열면 안 돼요. 꼭 내려받은 뒤 브라우저로 여세요.')),
       h('h4', {}, '1 · 스타일 → 2 · 글 고치기 → 3 · 미리보기'),
-      h('ul', {}, li('오른쪽 위 그림 6개 중 마음에 드는 스타일을 누르세요.', '왼쪽 칸의 글을 고치면 미리보기에 바로 나와요. "+ 장면 더하기"로 장면을 늘려요.', '빨간 점검 상자가 나오면 글을 줄이거나 장면을 둘로 나누세요.')),
+      h('ul', {}, li('오른쪽 위 그림 중 마음에 드는 스타일을 누르세요(11가지).', '왼쪽 칸의 글을 고치면 미리보기에 바로 나와요. "+ 장면 더하기"로 장면을 늘려요.', '빨간 점검 상자가 나오면 글을 줄이거나 장면을 둘로 나누세요.')),
       h('h4', {}, '🎙 내 목소리 넣기'),
       h('ol', {}, li('장면 아래 "🎙 녹음"을 누르세요. 처음 한 번 "마이크 허용"을 물으면 허용을 누르세요.', '그 장면의 글을 읽고 "■ 멈추기". "▶ 듣기"로 확인하고, 마음에 안 들면 다시 녹음하면 덮어써요.', '말 길이만큼 장면이 저절로 늘고, 말하는 동안 배경음이 작아져요.')),
       h('p', {}, '팁: 조용한 곳에서, 이어폰 마이크가 노트북 마이크보다 깨끗해요. 휴대폰 녹음 앱으로 녹음한 파일은 "파일" 버튼으로 넣어요. 장면 하나에 한 녹음이에요.'),

@@ -408,6 +408,73 @@ textarea { resize: vertical; }
   ];
   const styleOf = L => STYLES.find(s => s.id === (L.style || L.theme)) || STYLES[0];
 
+  // 그림 자료: 스타일마다 다르게 그린 그림(사진 대신). 판 650×540 · 사진과 같은 자리(%)를 짚을 수 있게 구도를 맞춘다
+  const ART = {
+    // 잎: 갈래 6개(단풍 · 플라타너스형) · 톱니 가장자리 · 굵은 잎맥 → 곁잎맥
+    leaf() {
+      const B = [220, 335], deg = Math.PI / 180;
+      const lobes = [[218, 150], [262, 250], [300, 372], [338, 440], [372, 378], [410, 240]];   // [방향°, 길이]
+      const rOf = a => {   // a: 165~490°
+        const t = Math.max(0, Math.min(1, (a - 168) / 30, (490 - a) / 34));
+        let r = 30 + 85 * t;
+        lobes.forEach(([c, L]) => { const d = Math.abs(a - c) / 34; if (d < 1) r = Math.max(r, L * Math.pow(1 - d, 0.62)); });
+        return r;
+      };
+      const pt = (a, r, o = B) => [o[0] + r * Math.cos(a * deg), o[1] + r * Math.sin(a * deg)];
+      const f = v => v.toFixed(1);
+      let out = '';
+      for (let a = 166; a <= 490; a += 0.5) { const tooth = 1 + 0.045 * ((a % 6) / 6); const [x, y] = pt(a, rOf(a) * (rOf(a) > 120 ? tooth : 1)); out += (out ? 'L' : 'M') + f(x) + ' ' + f(y); }
+      out += 'Z';
+      const veins = [], small = [];
+      lobes.forEach(([c, L]) => {
+        const e = pt(c, L * 0.94), m = pt(c - 3, L * 0.5);
+        veins.push(`M${B[0]} ${B[1]}Q${f(m[0])} ${f(m[1])} ${f(e[0])} ${f(e[1])}`);
+        [.28, .46, .64, .8].forEach(s => {
+          if (L * s < 50) return;
+          const o = pt(c - 3 * (1 - s), L * s);
+          [-1, 1].forEach(side => {
+            const bd = c + side * 42; let len = (L * (1 - s)) * 0.62 + 18;
+            for (let k = 0; k < 12; k++) { const q = pt(bd, len, o), dx = q[0] - B[0], dy = q[1] - B[1]; let ang = Math.atan2(dy, dx) / deg; while (ang < 165) ang += 360; while (ang > 525) ang -= 360; if (Math.hypot(dx, dy) < rOf(ang) * 0.9) break; len *= 0.85; }
+            const q = pt(bd, len, o), cq = pt(bd - side * 12, len * 0.5, o);
+            small.push(`M${f(o[0])} ${f(o[1])}Q${f(cq[0])} ${f(cq[1])} ${f(q[0])} ${f(q[1])}`);
+          });
+        });
+      });
+      const stem = `M${B[0]} ${B[1]}Q120 380 12 462`;
+      return { w: 650, h: 540, out, veins: veins.join(''), small: small.join(''), stem };
+    },
+  };
+  // 스타일에 맞춰 칠하기. 반환: SVG 글(draw-on 은 class dw · 채움은 class fl)
+  const artSVG = (name, sid, acc) => {
+    const g = ART[name](); const V = `viewBox="0 0 ${g.w} ${g.h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`;
+    const P = (d, a) => `<path d="${d}" pathLength="1" ${a}/>`;
+    const lines = (st, w1, w2, w3, extra = '') => P(g.stem, `class="dw" fill="none" stroke="${st}" stroke-width="${w1 * 1.6}" stroke-linecap="round" ${extra}`) + P(g.out, `class="dw" fill="none" stroke="${st}" stroke-width="${w1}" stroke-linejoin="round" ${extra}`)
+      + P(g.veins, `class="dw" fill="none" stroke="${st}" stroke-width="${w2}" stroke-linecap="round" ${extra}`) + P(g.small, `class="dw" fill="none" stroke="${st}" stroke-width="${w3}" stroke-linecap="round" opacity=".8" ${extra}`);
+    const S = {
+      dark: () => `<defs><filter id="ag-glow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
+        + `<path class="fl" d="${g.out}" fill="${acc}" opacity=".1"/><g filter="url(#ag-glow)">${lines(acc, 4, 3, 1.6)}</g>`,
+      light: () => `<defs><pattern id="ag-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="2" height="7" fill="#1a1a1a"/></pattern></defs>`
+        + `<path class="fl" d="${g.out}" fill="url(#ag-hatch)" opacity=".28"/>${lines('#141414', 3.5, 2.6, 1.2)}`,
+      board: () => `<defs><pattern id="ag-chalk" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(-28)"><rect width="5" height="16" fill="#9be59a"/></pattern></defs>`
+        + `<g filter="url(#pc-chalk)"><path class="fl" d="${g.out}" fill="url(#ag-chalk)" opacity=".55"/>${lines('#f4f3ea', 7, 5, 2.6)}</g>`,
+      note: () => `<path class="fl" d="${g.out}" fill="#a8ef6a" opacity=".6" transform="translate(9 7)"/>${lines('#2f5bd3', 3, 2.4, 1.3)}`,
+      pop: () => `<path class="fl" d="${g.out}" fill="#111" transform="translate(14 14)"/><path class="fl" d="${g.out}" fill="#2ee67a"/>${lines('#111', 9, 6, 3)}`,
+      grid: () => `<path class="fl" d="${g.out}" fill="${acc}" opacity=".12"/>${lines(acc, 3.5, 2.6, 1.3)}`
+        + `<g class="fl" fill="none" stroke="${acc}" stroke-width="1.6" stroke-dasharray="6 6"><line x1="220" y1="335" x2="640" y2="165"/><circle cx="220" cy="335" r="22"/></g>`,
+      night: () => `<g class="fl" fill="none" stroke="#e8f1ff" stroke-width="1.4" stroke-dasharray="8 7" opacity=".6"><circle cx="220" cy="335" r="160"/><circle cx="220" cy="335" r="360"/><line x1="0" y1="335" x2="650" y2="335"/><line x1="220" y1="0" x2="220" y2="540"/></g>`
+        + lines('#e8f1ff', 3, 2.4, 1.2),
+      ink: () => `<defs><radialGradient id="ag-wash" cx="40%" cy="55%" r="65%"><stop offset="0" stop-color="#111" stop-opacity=".55"/><stop offset=".7" stop-color="#111" stop-opacity=".22"/><stop offset="1" stop-color="#111" stop-opacity=".08"/></radialGradient></defs>`
+        + `<g filter="url(#pc-ink)"><path class="fl" d="${g.out}" fill="url(#ag-wash)"/>${lines('#141414', 6, 4.5, 2)}</g>`,
+      craft: () => `<defs><filter id="ag-paper" x="-5%" y="-5%" width="115%" height="115%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -.9 .55" result="s"/><feComposite in="s" in2="SourceGraphic" operator="in" result="t"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="t"/></feMerge></filter></defs>`
+        + `<path class="fl" d="${g.out}" fill="#000" opacity=".22" transform="translate(10 12)"/><g class="fl" filter="url(#ag-paper)"><path d="${g.stem}" fill="none" stroke="#2f7d32" stroke-width="14" stroke-linecap="round"/><path d="${g.out}" fill="#43a047" stroke="#fff" stroke-width="5"/><path d="${g.veins}" fill="none" stroke="#c5e8a5" stroke-width="9" stroke-linecap="round"/><path d="${g.small}" fill="none" stroke="#9ed36d" stroke-width="4" stroke-linecap="round"/></g>`,
+      pixel: () => `<path d="${g.stem}" fill="none" stroke="#008751" stroke-width="18" stroke-linecap="round"/><path d="${g.out}" fill="#00e436" stroke="#1d2b53" stroke-width="10"/><path d="${g.veins}" fill="none" stroke="#008751" stroke-width="10" stroke-linecap="round"/>`,
+      cinema: () => `<defs><radialGradient id="ag-cine" cx="62%" cy="28%" r="80%"><stop offset="0" stop-color="#c9f27a"/><stop offset=".45" stop-color="#3c8d2f"/><stop offset="1" stop-color="#0a2a12"/></radialGradient><filter id="ag-rim"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
+        + `<path class="fl" d="${g.out}" fill="url(#ag-cine)"/><g opacity=".55">${lines('#eaffc2', 0, 2.4, 1.1)}</g><g filter="url(#ag-rim)">${P(g.out, `class="dw" fill="none" stroke="${acc}" stroke-width="3"`)}${P(g.stem, `class="dw" fill="none" stroke="${acc}" stroke-width="5" stroke-linecap="round"`)}</g>`,
+    };
+    return { w: g.w, h: g.h, svg: `<svg xmlns="http://www.w3.org/2000/svg" ${V}>${(S[sid] || S.dark)()}</svg>` };
+  };
+  const ARTS = { leaf: '잎' };
+
   function mount(stage, L, opt = {}) {
   const R = L.ratio === '9:16';
   const W = R ? 1080 : 1920, H = R ? 1920 : 1080, U = Math.min(W, H) / 100;
@@ -967,11 +1034,12 @@ textarea { resize: vertical; }
     let b;
     return {
       dur, hits: [[0.2, 'write'], [2.0, 'end']],
-      measure() { b = box(tx); this.dotIn = { x: b.x - 2 * U, y: b.y + b.h * .6 }; this.dotOut = { x: b.x + b.w + 2.2 * U, y: b.y + b.h * .74 }; },
+      measure() { b = box(tx); this.dotIn = { x: b.x - 2 * U, y: b.y + b.h * .6 }; const dw = (dot && box(dot).w) || 0; this.dotOut = { x: b.x + b.w + Math.max(2.2 * U, dw * .75), y: b.y + b.h * .74 }; },
       update(lt) { wipe(tx, eio(p(lt, 0.2, 1.8))); if (sub) { sub.style.opacity = eo(p(lt, 2.2, 2.8)); } },
       dotAt(lt) {
         const k = eio(p(lt, 0.2, 1.8)); let pt = { x: lerp(this.dotIn.x, b.x + b.w, k), y: this.dotIn.y };
-        if (lt >= 1.8) pt = arc(pt, this.dotOut, eio(p(lt, 1.8, 2.05)), 3 * U);
+        if (lt >= 1.8) { const bb = box(tx), dw = box(dot).w || 0, o = { x: bb.x + bb.w + Math.max(2.2 * U, dw * .75), y: this.dotOut.y };   // 다가가기(예고편)로 글이 커져도 마침표 자리를 따라간다
+          pt = arc(pt, o, eio(p(lt, 1.8, 2.05)), 3 * U); }
         const beat = lt > 2.05 ? Math.max(0, Math.sin((lt - 2.05) * Math.PI * 2 / 0.9)) * (lt < 3.9 ? 0.35 : 0) : 0;
         return { ...pt, s: 1 + beat };
       },
@@ -982,13 +1050,18 @@ textarea { resize: vertical; }
   // sc.src(사진 · data URL 또는 경로) · sc.title(위 작은 글) · sc.caption(설명 · [[형광]]) · sc.pins[{x,y,label}](사진 위 % 자리)
   T.photo = (sc, root) => {
     const PIXEL = STY.id === 'pixel';
-    if (!sc.src) throw new Error('사진을 넣어 주세요');
+    const DRAW = sc.draw && ART[sc.draw] ? artSVG(sc.draw, STY.id, ACC) : null;   // 그림 자료(사진 대신 · 스타일에 맞춰 그림)
+    if (!sc.src && !DRAW) throw new Error('사진을 넣어 주세요');
     const pins = (sc.pins || []).filter(q => q && q.x != null && q.y != null);
     const hasSide = !!(sc.title || sc.caption);
     // 사진 칸: 16:9 는 왼쪽(글이 있으면 62%), 9:16 은 위
     const A = R ? { x: S.x, y: S.y, w: S.w, h: hasSide ? S.h * .64 : S.h } : { x: S.x, y: S.y, w: hasSide ? S.w * .62 : S.w, h: S.h };
     const box0 = el('div', 'abs photo', root); place(box0, A.x, A.y, A.w, A.h);
-    const zoom = el('div', 'abs', box0); const img = el('img', null, zoom); img.src = sc.src; img.alt = '';
+    const zoom = el('div', 'abs', box0); if (DRAW) box0.classList.add('drawn');
+    const INLINE = DRAW && !PIXEL;   // 픽셀은 그림도 네모 칸으로 바꾸려고 img 로
+    const img = INLINE ? el('div', null, zoom) : el('img', null, zoom);
+    if (INLINE) img.innerHTML = DRAW.svg; else { img.src = DRAW ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(DRAW.svg) : sc.src; img.alt = ''; }
+    const dws = INLINE ? [...img.querySelectorAll('.dw')] : [], fls = INLINE ? [...img.querySelectorAll('.fl')] : [];
     css(img, { position: 'absolute', inset: '0', width: '100%', height: '100%', display: 'block' });
     const pinEls = pins.map(q => { const g = el('div', 'pin', zoom); el('span', 'ring', g); const lb = q.label ? el('div', 'pinlab qa', g, q.label) : null; if (q.label) TEXTS.push(q.label); return { q, g, lb }; });
     let side = null, kick = null, cap = null;
@@ -1006,7 +1079,7 @@ textarea { resize: vertical; }
     const zs = lt => 1 + 0.07 * eio(p(lt, 0.15, dur));
     const zq = (q, lt) => { const k = zs(lt); return { x: O.x + (q.x - O.x) * k, y: O.y + (q.y - O.y) * k }; };   // 다가가도 짚은 곳을 따라간다
     const layout = () => {
-      const nw = img.naturalWidth || 4, nh = img.naturalHeight || 3, k = Math.min(A.w / nw, A.h / nh), w = nw * k, h = nh * k;
+      const nw = DRAW ? DRAW.w : img.naturalWidth || 4, nh = DRAW ? DRAW.h : img.naturalHeight || 3, k = Math.min(A.w / nw, A.h / nh), w = nw * k, h = nh * k;
       F = { x: (A.w - w) / 2, y: (A.h - h) / 2, w, h };
       place(zoom, F.x, F.y, w, h); css(zoom, { overflow: 'hidden', borderRadius: px(1.2 * U) });
       // 다가가는 곳: 짚는 곳들의 가운데
@@ -1017,6 +1090,7 @@ textarea { resize: vertical; }
     return {
       dur, hits: [[0.15, 'sweep'], ...(cap ? [[tCap, 'words']] : []), ...(cap && cap.querySelector('.hl') ? [[tCap + 1.0, 'mark']] : []), ...pt.map(t => [t, 'pop'])],
       async prepare() {
+        if (INLINE) return;
         if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; }); if (!img.naturalWidth) throw new Error('사진을 읽지 못했어요');
         if (PIXEL) {   // 픽셀 스타일: 사진도 큰 네모 칸으로(가로 72칸 · 색 단계 줄이기)
           const cw = 72, ch = Math.max(1, Math.round(cw * img.naturalHeight / img.naturalWidth)), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
@@ -1032,7 +1106,10 @@ textarea { resize: vertical; }
       },
       update(lt) {
         const k = eio(p(lt, 0.15, 1.0));
-        zoom.style.clipPath = `inset(0 ${((1 - k) * 100).toFixed(2)}% 0 0 round ${1.2 * U}px)`;
+        if (INLINE) {   // 그림: 선이 그려지고 색이 스민다
+          const n = dws.length; dws.forEach((e, j) => { const a = eio(p(lt, 0.15 + j / n * 0.6, 0.9 + j / n * 0.9)); e.style.strokeDasharray = '1 1'; e.style.strokeDashoffset = (1 - a).toFixed(4); });
+          fls.forEach(e => { e.style.opacity = ''; e.style.opacity = (+(e.getAttribute('opacity') || 1) * eo(p(lt, 0.7, 1.6))).toFixed(3); });
+        } else zoom.style.clipPath = `inset(0 ${((1 - k) * 100).toFixed(2)}% 0 0 round ${1.2 * U}px)`;
         img.style.transform = `scale(${zs(lt)})`;
         if (kick) kick.style.opacity = eo(p(lt, 0.4, 0.9));
         if (cap) { wipe(cap, eio(p(lt, tCap, tCap + 1.0))); cap.querySelectorAll('.hl').forEach((e, j) => { const k = eio(p(lt, tCap + 1.0 + j * 0.3, tCap + 1.4 + j * 0.3)); e.style.setProperty('--k', k); e.classList.toggle('on', k > .5); }); }
@@ -1439,7 +1516,7 @@ textarea { resize: vertical; }
     });
   }
 
-  window.PeaceClass = { mount, player, STYLES, wav, wavBase64 };
+  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
   // 수업용 파일 · 렌더용 페이지: LESSON 과 #stage 가 있으면 바로 띄운다
   const st = document.getElementById('stage');
   if (window.LESSON && st && !window.__NO_AUTO__) {
@@ -1449,7 +1526,7 @@ textarea { resize: vertical; }
   }
 })();
 </script>
-<script>window.START_LESSON = {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}; window.EXAMPLES = [{"name": "사회 · 조선 전기의 흐름", "lesson": {"title": "조선 전기의 흐름", "subject": "사회", "unit": "중학 역사 · 조선", "ratio": "9:16", "mood": "calm", "scenes": [{"type": "title", "title": "조선, 처음 50년", "sub": "나라를 세우고 글자를 만들기까지"}, {"type": "timeline", "title": "연표", "events": [["1392", "조선 건국"], ["1394", "한양으로 도읍을 옮김"], ["1443", "훈민정음 창제"], ["1446", "훈민정음 반포"]]}, {"type": "compare", "left": {"title": "고려", "points": ["도읍 개경", "불교가 중심"]}, "right": {"title": "조선", "points": ["도읍 한양", "유교가 중심"]}}, {"type": "process", "title": "훈민정음이 나오기까지", "steps": ["백성이 한자를 몰라 억울한 일이 많았다", "세종이 새 글자를 만들었다 (1443)", "책으로 펴내 널리 알렸다 (1446)"]}, {"type": "end", "text": "백성을 위한 글자", "sub": "다음 시간 · 세종 때의 과학"}]}}, {"name": "국어 · 자음 하나, 뜻 하나", "lesson": {"title": "자음 하나, 뜻 하나", "subject": "국어", "unit": "초3 · 낱말의 짜임", "ratio": "16:9", "style": "ink", "mood": "calm", "scenes": [{"type": "title", "title": "자음 하나, 뜻 하나", "sub": "글자는 자음과 모음이 모여 만든다", "say": "오늘은 자음 하나만 바꿔도 뜻이 달라지는 낱말을 알아봐요."}, {"type": "hangul", "title": "첫소리만 바꾸면", "words": [["불", "타오르는 불"], ["풀", "들판의 풀"], ["뿔", "소의 뿔"]], "note": "모음 ㅜ, 받침 ㄹ 은 그대로!", "say": "불, 풀, 뿔. 첫소리 자음만 바뀌었는데 뜻이 완전히 달라져요."}, {"type": "hangul", "title": "모음만 바꾸면", "words": [["말", "달리는 말"], ["물", "마시는 물"], ["멀", "멀다의 멀"]], "say": "이번에는 가운데 모음만 바꿔 볼까요? 말, 물, 그리고 멀."}, {"type": "concept", "term": "음운", "text": "말의 뜻을 구별하는 소리의 가장 작은 단위", "keys": ["뜻을 구별하는", "가장 작은 단위"], "say": "이렇게 말의 뜻을 구별하는 소리의 가장 작은 단위를 음운이라고 해요."}, {"type": "end", "text": "소리 하나가 뜻을 바꾼다", "sub": "다음 시간 · 받침이 바뀌면?", "say": "소리 하나가 뜻을 바꾼다! 다음 시간에는 받침을 바꿔 볼게요."}]}}, {"name": "수학 · 우리 반 등교 방법", "lesson": {"title": "우리 반 등교 방법", "subject": "수학", "unit": "자료의 정리 · 막대그래프", "ratio": "9:16", "mood": "bright", "scenes": [{"type": "title", "title": "막대그래프", "sub": "한눈에 비교하기"}, {"type": "bars", "title": "우리 반 등교 방법 (명)", "items": [["걷기", 14], ["버스", 9], ["자전거", 4], ["자가용", 3]], "unit": "명", "source": "예시 자료 · 우리 반 설문으로 바꾸세요", "cursor": true, "total": true}, {"type": "concept", "label": "읽는 법", "term": "가장 긴 막대", "text": "막대가 길수록 그 항목의 수가 많다", "keys": ["막대가 길수록"]}, {"type": "end", "text": "길이로 비교한다", "sub": "다음 시간 · 꺾은선그래프"}]}}, {"name": "수학 · 일차함수의 기울기", "lesson": {"title": "일차함수의 기울기", "subject": "수학", "unit": "중2 · 일차함수", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "기울기", "sub": "가파름을 숫자로"}, {"type": "concept", "term": "기울기", "text": "x의 값이 1만큼 증가할 때 y의 값이 얼마나 증가하는지 나타내는 수", "keys": ["1만큼 증가할 때", "얼마나 증가하는지"]}, {"type": "steps", "title": "y = 2x + 1 에서", "lines": ["x = 0 \\quad\\Rightarrow\\quad y = 1", "x = 1 \\quad\\Rightarrow\\quad y = \\hl{3}", "\\text{기울기} = \\dfrac{\\hl{3} - 1}{1 - 0} = \\hl{2}"], "note": "x가 1 늘면 y는 2 는다"}, {"type": "graph", "fns": [{"f": "2*x+1", "label": "y = 2x + 1"}, {"f": "0.5*x+1", "label": "y = \\tfrac{1}{2}x + 1"}], "x": [-4, 4], "y": [-3, 7], "tri": {"fn": 0, "at": 1}, "note": "기울기가 클수록 가파르다"}, {"type": "fix", "wrong": "기울기 = $\\dfrac{x\\text{의 증가량}}{y\\text{의 증가량}}$", "right": "기울기 = $\\dfrac{y\\text{의 증가량}}{x\\text{의 증가량}}$", "why": "y가 위, x가 아래!"}, {"type": "end", "text": "기울기는 가파름의 숫자", "sub": "다음 시간 · y절편"}]}}, {"name": "과학 · 광합성", "lesson": {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}}, {"name": "특별편 · 점 하나의 모험", "lesson": {"title": "점 하나의 모험", "subject": "특별편", "unit": "점 하나의 모험", "ratio": "16:9", "mood": "bright", "scenes": [{"type": "title", "kicker": "PEACE CLASS 특별편", "title": "점 하나의 모험", "sub": "오늘, 열한 개의 세계를 건넌다", "style": "dark"}, {"type": "fix", "label": "속보", "label2": "정정 보도", "wrong": "점은 그냥 마침표다", "right": "점은 수업을 끌고 다닌다", "why": "본지는 앞선 보도를 바로잡습니다", "stamp": "오보 정정", "style": "light"}, {"type": "steps", "title": "칠판 앞의 진실", "tex": false, "keep": true, "lines": ["1교시 · 졸리다", "2교시 · 더 졸리다", "4교시 · [[급식 냄새]]에 눈이 번쩍"], "note": "그래도 판서는 계속된다", "style": "board"}, {"type": "compare", "left": {"title": "필기한 날", "points": ["시험 전날 마음이 평화롭다", "형광펜 색이 예쁘다"]}, "right": {"title": "안 한 날", "points": ["친구 공책을 빌리러 간다", "내 글씨를 내가 못 읽는다"]}, "vs": "vs", "style": "note"}, {"type": "bars", "title": "점이 좋아하는 것 (표)", "items": [["형광펜", 12], ["마침표", 7], ["쉬는 시간", 21], ["숙제", 1]], "unit": "표", "source": "조사: 점 혼자 · 응답 1명", "cursor": true, "total": true, "style": "pop"}, {"type": "graph", "fns": [{"f": "-(x-2.5)**2+9", "label": "수업 집중력"}], "x": [0, 6], "y": [0, 10], "points": [[2.5, 9, "최고"], [5.5, 0, "종 치기 1분 전"]], "note": "시작 15분이 황금 시간", "style": "grid"}, {"type": "process", "title": "완벽한 지각 방지 설계도", "steps": ["알람 다섯 개 맞추기", "다섯 개 다 끄기", "다시 눈 감기", "교문 앞 전력 질주"], "style": "night"}, {"type": "hangul", "title": "점 하나 차이", "words": [["님", "그리운 사람"], ["남", "모르는 사람"]], "note": "님에 점 하나 찍으면 남", "style": "ink"}, {"type": "timeline", "title": "점의 하루", "events": [["7:00", "눈 뜸"], ["9:00", "제목 옆에 착지"], ["12:30", "급식 줄 맨 앞"], ["16:00", "형광펜으로 변신"]], "style": "craft"}, {"type": "concept", "label": "LEVEL UP", "term": "보너스 스테이지", "text": "점을 끝까지 따라온 사람은 오늘 수업의 핵심을 이미 다 본 사람이다", "keys": ["핵심을 이미 다 본 사람"], "style": "pixel"}, {"type": "end", "text": "다음 수업, 점이 돌아온다", "sub": "2교시 개봉 · 졸면 안 보임", "style": "cinema"}], "style": "dark"}}];</script>
+<script>window.START_LESSON = {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "photo", "draw": "leaf", "title": "잎을 자세히", "caption": "잎몸의 [[엽록체]]가 빛을 받아요", "pins": [{"x": 17, "y": 74, "label": "잎자루"}, {"x": 69, "y": 45, "label": "잎맥 · 물이 지나는 길"}, {"x": 51, "y": 27, "label": "잎몸 · 빛을 받는 곳"}], "say": "잎을 자세히 볼까요? 잎자루, 물이 지나는 잎맥, 그리고 빛을 받는 잎몸이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}; window.EXAMPLES = [{"name": "사회 · 조선 전기의 흐름", "lesson": {"title": "조선 전기의 흐름", "subject": "사회", "unit": "중학 역사 · 조선", "ratio": "9:16", "mood": "calm", "scenes": [{"type": "title", "title": "조선, 처음 50년", "sub": "나라를 세우고 글자를 만들기까지"}, {"type": "timeline", "title": "연표", "events": [["1392", "조선 건국"], ["1394", "한양으로 도읍을 옮김"], ["1443", "훈민정음 창제"], ["1446", "훈민정음 반포"]]}, {"type": "compare", "left": {"title": "고려", "points": ["도읍 개경", "불교가 중심"]}, "right": {"title": "조선", "points": ["도읍 한양", "유교가 중심"]}}, {"type": "process", "title": "훈민정음이 나오기까지", "steps": ["백성이 한자를 몰라 억울한 일이 많았다", "세종이 새 글자를 만들었다 (1443)", "책으로 펴내 널리 알렸다 (1446)"]}, {"type": "end", "text": "백성을 위한 글자", "sub": "다음 시간 · 세종 때의 과학"}]}}, {"name": "국어 · 자음 하나, 뜻 하나", "lesson": {"title": "자음 하나, 뜻 하나", "subject": "국어", "unit": "초3 · 낱말의 짜임", "ratio": "16:9", "style": "ink", "mood": "calm", "scenes": [{"type": "title", "title": "자음 하나, 뜻 하나", "sub": "글자는 자음과 모음이 모여 만든다", "say": "오늘은 자음 하나만 바꿔도 뜻이 달라지는 낱말을 알아봐요."}, {"type": "hangul", "title": "첫소리만 바꾸면", "words": [["불", "타오르는 불"], ["풀", "들판의 풀"], ["뿔", "소의 뿔"]], "note": "모음 ㅜ, 받침 ㄹ 은 그대로!", "say": "불, 풀, 뿔. 첫소리 자음만 바뀌었는데 뜻이 완전히 달라져요."}, {"type": "hangul", "title": "모음만 바꾸면", "words": [["말", "달리는 말"], ["물", "마시는 물"], ["멀", "멀다의 멀"]], "say": "이번에는 가운데 모음만 바꿔 볼까요? 말, 물, 그리고 멀."}, {"type": "concept", "term": "음운", "text": "말의 뜻을 구별하는 소리의 가장 작은 단위", "keys": ["뜻을 구별하는", "가장 작은 단위"], "say": "이렇게 말의 뜻을 구별하는 소리의 가장 작은 단위를 음운이라고 해요."}, {"type": "end", "text": "소리 하나가 뜻을 바꾼다", "sub": "다음 시간 · 받침이 바뀌면?", "say": "소리 하나가 뜻을 바꾼다! 다음 시간에는 받침을 바꿔 볼게요."}]}}, {"name": "수학 · 우리 반 등교 방법", "lesson": {"title": "우리 반 등교 방법", "subject": "수학", "unit": "자료의 정리 · 막대그래프", "ratio": "9:16", "mood": "bright", "scenes": [{"type": "title", "title": "막대그래프", "sub": "한눈에 비교하기"}, {"type": "bars", "title": "우리 반 등교 방법 (명)", "items": [["걷기", 14], ["버스", 9], ["자전거", 4], ["자가용", 3]], "unit": "명", "source": "예시 자료 · 우리 반 설문으로 바꾸세요", "cursor": true, "total": true}, {"type": "concept", "label": "읽는 법", "term": "가장 긴 막대", "text": "막대가 길수록 그 항목의 수가 많다", "keys": ["막대가 길수록"]}, {"type": "end", "text": "길이로 비교한다", "sub": "다음 시간 · 꺾은선그래프"}]}}, {"name": "수학 · 일차함수의 기울기", "lesson": {"title": "일차함수의 기울기", "subject": "수학", "unit": "중2 · 일차함수", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "기울기", "sub": "가파름을 숫자로"}, {"type": "concept", "term": "기울기", "text": "x의 값이 1만큼 증가할 때 y의 값이 얼마나 증가하는지 나타내는 수", "keys": ["1만큼 증가할 때", "얼마나 증가하는지"]}, {"type": "steps", "title": "y = 2x + 1 에서", "lines": ["x = 0 \\quad\\Rightarrow\\quad y = 1", "x = 1 \\quad\\Rightarrow\\quad y = \\hl{3}", "\\text{기울기} = \\dfrac{\\hl{3} - 1}{1 - 0} = \\hl{2}"], "note": "x가 1 늘면 y는 2 는다"}, {"type": "graph", "fns": [{"f": "2*x+1", "label": "y = 2x + 1"}, {"f": "0.5*x+1", "label": "y = \\tfrac{1}{2}x + 1"}], "x": [-4, 4], "y": [-3, 7], "tri": {"fn": 0, "at": 1}, "note": "기울기가 클수록 가파르다"}, {"type": "fix", "wrong": "기울기 = $\\dfrac{x\\text{의 증가량}}{y\\text{의 증가량}}$", "right": "기울기 = $\\dfrac{y\\text{의 증가량}}{x\\text{의 증가량}}$", "why": "y가 위, x가 아래!"}, {"type": "end", "text": "기울기는 가파름의 숫자", "sub": "다음 시간 · y절편"}]}}, {"name": "과학 · 광합성", "lesson": {"title": "광합성", "subject": "과학", "unit": "중1 · 식물과 에너지", "ratio": "16:9", "mood": "calm", "scenes": [{"type": "title", "title": "광합성", "sub": "잎은 빛으로 양분을 만든다", "say": "오늘은 광합성에 대해 알아볼 거예요. 잎은 빛으로 양분을 만들어요."}, {"type": "fix", "label": "이런 생각, 해 본 적 있나요?", "wrong": "식물은 흙 속 양분을 먹고 자란다", "right": "식물은 양분을 스스로 만든다", "why": "흙에서는 물과 무기 양분을 얻을 뿐!", "say": "식물은 흙 속 양분을 먹고 자란다고 생각해 본 적 있나요? 사실 식물은 양분을 스스로 만들어요. 흙에서는 물과 무기 양분을 얻을 뿐이에요."}, {"type": "concept", "term": "광합성", "text": "식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정", "keys": ["빛에너지", "물과 이산화 탄소", "양분"], "say": "광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정이에요."}, {"type": "photo", "draw": "leaf", "title": "잎을 자세히", "caption": "잎몸의 [[엽록체]]가 빛을 받아요", "pins": [{"x": 17, "y": 74, "label": "잎자루"}, {"x": 69, "y": 45, "label": "잎맥 · 물이 지나는 길"}, {"x": 51, "y": 27, "label": "잎몸 · 빛을 받는 곳"}], "say": "잎을 자세히 볼까요? 잎자루, 물이 지나는 잎맥, 그리고 빛을 받는 잎몸이에요."}, {"type": "steps", "title": "광합성을 식으로 나타내면", "lines": ["\\text{물} + \\text{이산화 탄소}", "\\xrightarrow{\\;\\text{빛에너지}\\;}", "\\hl{\\text{포도당}} + \\hl{\\text{산소}}"], "keep": true, "note": "장소는 잎의 엽록체", "say": "식으로 나타내면, 물과 이산화 탄소가 빛에너지를 받아 포도당과 산소가 돼요. 이 일은 잎의 엽록체에서 일어나요."}, {"type": "compare", "vs": "→", "left": {"title": "들어가는 것", "points": ["물 — 뿌리에서 흡수", "이산화 탄소 — 잎의 기공으로"]}, "right": {"title": "나오는 것", "points": ["포도당 — 양분으로 쓰임", "산소 — 기공으로 나감"]}, "say": "정리하면, 물과 이산화 탄소가 들어가고, 포도당과 산소가 나와요."}, {"type": "end", "text": "잎은 빛으로 밥을 짓는다", "sub": "다음 시간 · 광합성에 영향을 주는 조건", "say": "잎은 빛으로 밥을 짓는다! 다음 시간에는 광합성에 영향을 주는 조건을 알아봐요."}]}}, {"name": "특별편 · 점 하나의 모험", "lesson": {"title": "점 하나의 모험", "subject": "특별편", "unit": "점 하나의 모험", "ratio": "16:9", "mood": "bright", "scenes": [{"type": "title", "kicker": "PEACE CLASS 특별편", "title": "점 하나의 모험", "sub": "오늘, 열한 개의 세계를 건넌다", "style": "dark"}, {"type": "fix", "label": "속보", "label2": "정정 보도", "wrong": "점은 그냥 마침표다", "right": "점은 수업을 끌고 다닌다", "why": "본지는 앞선 보도를 바로잡습니다", "stamp": "오보 정정", "style": "light"}, {"type": "steps", "title": "칠판 앞의 진실", "tex": false, "keep": true, "lines": ["1교시 · 졸리다", "2교시 · 더 졸리다", "4교시 · [[급식 냄새]]에 눈이 번쩍"], "note": "그래도 판서는 계속된다", "style": "board"}, {"type": "compare", "left": {"title": "필기한 날", "points": ["시험 전날 마음이 평화롭다", "형광펜 색이 예쁘다"]}, "right": {"title": "안 한 날", "points": ["친구 공책을 빌리러 간다", "내 글씨를 내가 못 읽는다"]}, "vs": "vs", "style": "note"}, {"type": "bars", "title": "점이 좋아하는 것 (표)", "items": [["형광펜", 12], ["마침표", 7], ["쉬는 시간", 21], ["숙제", 1]], "unit": "표", "source": "조사: 점 혼자 · 응답 1명", "cursor": true, "total": true, "style": "pop"}, {"type": "graph", "fns": [{"f": "-(x-2.5)**2+9", "label": "수업 집중력"}], "x": [0, 6], "y": [0, 10], "points": [[2.5, 9, "최고"], [5.5, 0, "종 치기 1분 전"]], "note": "시작 15분이 황금 시간", "style": "grid"}, {"type": "process", "title": "완벽한 지각 방지 설계도", "steps": ["알람 다섯 개 맞추기", "다섯 개 다 끄기", "다시 눈 감기", "교문 앞 전력 질주"], "style": "night"}, {"type": "hangul", "title": "점 하나 차이", "words": [["님", "그리운 사람"], ["남", "모르는 사람"]], "note": "님에 점 하나 찍으면 남", "style": "ink"}, {"type": "timeline", "title": "점의 하루", "events": [["7:00", "눈 뜸"], ["9:00", "제목 옆에 착지"], ["12:30", "급식 줄 맨 앞"], ["16:00", "형광펜으로 변신"]], "style": "craft"}, {"type": "concept", "label": "LEVEL UP", "term": "보너스 스테이지", "text": "점을 끝까지 따라온 사람은 오늘 수업의 핵심을 이미 다 본 사람이다", "keys": ["핵심을 이미 다 본 사람"], "style": "pixel"}, {"type": "end", "text": "다음 수업, 점이 돌아온다", "sub": "2교시 개봉 · 졸면 안 보임", "style": "cinema"}], "style": "dark"}}];</script>
 <script>/* 수업 영상 스튜디오 — 선생님이 스타일을 눈으로 고르고, 시나리오를 화면에서 고치고, 수업용 파일로 저장한다.
  * 이 파일 하나에 엔진 · 글꼴 · 수식이 다 들어 있다(인터넷 · 설치 없음).
  */
@@ -1481,7 +1558,7 @@ textarea { resize: vertical; }
     timeline: { name: '연표', tip: '선 위로 때와 일이 차례로', fields: [['title', '위 제목', 'text'], ['events', '때 · 일', 'pairs', ['때', '일']], ['scale', '연도 간격대로 띄우기', 'check']], make: () => ({ title: '연표', events: [['1392', '사건'], ['1446', '사건']] }) },
     compare: { name: '둘 비교', tip: '양쪽이 엇갈려 들어온다', fields: [['left.title', '왼쪽 제목', 'text'], ['left.points', '왼쪽 내용', 'list'], ['right.title', '오른쪽 제목', 'text'], ['right.points', '오른쪽 내용', 'list'], ['vs', '가운데 글 (비우면 vs)', 'text']], make: () => ({ left: { title: 'A', points: ['내용'] }, right: { title: 'B', points: ['내용'] } }) },
     process: { name: '과정', tip: '단계가 차례로 채워진다', fields: [['title', '위 제목', 'text'], ['steps', '단계', 'list']], make: () => ({ title: '과정', steps: ['첫째', '둘째', '셋째'] }) },
-    photo: { name: '사진', tip: '사진을 넣고 짚을 곳을 눌러 이름표 달기', fields: [['src', '사진 (사진 위를 누르면 그 자리에 이름표)', 'photo'], ['title', '위 작은 글', 'text'], ['caption', '설명 (형광 = [[…]])', 'area']], make: () => ({ src: '', title: '', caption: '', pins: [] }) },
+    photo: { name: '사진', tip: '사진을 넣고 짚을 곳을 눌러 이름표 달기', fields: [['src', '사진 · 그림 (위를 누르면 그 자리에 이름표)', 'photo'], ['title', '위 작은 글', 'text'], ['caption', '설명 (형광 = [[…]])', 'area']], make: () => ({ src: '', title: '', caption: '', pins: [] }) },
     hangul: { name: '한글 조립', tip: '자모가 날아와 글자가 되고, 자모 하나가 바뀌면 뜻이 바뀐다', fields: [['title', '위 작은 글', 'text'], ['words', '낱말 · 뜻 (차례로 바뀜 · 같은 글자 수가 좋아요)', 'pairs', ['낱말  예) 불', '뜻  예) 타오르는 불']], ['note', '손글씨 메모', 'text']], make: () => ({ title: '자음 하나로 뜻이 바뀐다', words: [['불', '타오르는 불'], ['풀', '들판의 풀'], ['뿔', '소의 뿔']], note: '' }) },
     end: { name: '마무리', tip: '전할 것 한 문장 · 점이 마침표가 된다', fields: [['text', '마무리 한 마디 (손글씨)', 'text'], ['sub', '아래 작은 글', 'text']], make: () => ({ text: '마무리 한 마디', sub: '' }) },
   };
@@ -1626,16 +1703,17 @@ textarea { resize: vertical; }
     fr.onerror = () => rej(fr.error); fr.readAsDataURL(file);
   });
   function photoField(sc, label) {
-    const take = async f => { if (!f || !/^image\//.test(f.type)) return alert('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); changed(true); renderLeft(); } catch (e) { alert(e.message); } };
+    const take = async f => { if (!f || !/^image\//.test(f.type)) return alert('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); delete sc.draw; changed(true); renderLeft(); } catch (e) { alert(e.message); } };
     const fin = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: e => take(e.target.files[0]) });
     const wrap = h('div', { class: 'photo-f' });
-    if (sc.src) {
+    const shown = sc.draw && PeaceClass.ARTS?.[sc.draw] ? PeaceClass.artURL(sc.draw) : sc.src;
+    if (shown) {
       const pic = h('div', { class: 'pic', title: '누르면 그 자리에 이름표가 생겨요', onclick: e => {
         e.stopPropagation(); const r = img.getBoundingClientRect();
         (sc.pins = sc.pins || []).push({ x: +((e.clientX - r.left) / r.width * 100).toFixed(1), y: +((e.clientY - r.top) / r.height * 100).toFixed(1), label: '' });
         changed(true); renderLeft(); setTimeout(() => [...left.querySelectorAll('.s-scene.on .pins input')].at(-1)?.focus(), 0);
       } });
-      const img = h('img', { src: sc.src, alt: '' }); pic.append(img);
+      const img = h('img', { src: shown, alt: '' }); pic.append(img);
       (sc.pins || []).forEach((q, j) => pic.append(h('span', { class: 'mk', style: `left:${q.x}%;top:${q.y}%` }, String(j + 1))));
       wrap.append(pic);
       const list = h('div', { class: 'pins list' });
@@ -1646,7 +1724,8 @@ textarea { resize: vertical; }
       wrap.append(list);
     }
     wrap.append(h('div', { class: 'pair' }, h('button', { class: 'plus', onclick: e => { e.stopPropagation(); fin.click(); } }, sc.src ? '사진 바꾸기' : '📷 사진 넣기'),
-      h('span', {}, '또는 사진을 복사해 이 칸을 누르고 Ctrl+V'), fin));
+      ...Object.entries(PeaceClass.ARTS || {}).map(([k, nm]) => h('button', { class: 'plus' + (sc.draw === k ? ' on' : ''), title: '사진 대신 스타일에 맞춰 그린 그림 (칠판이면 분필, 픽셀이면 도트)', onclick: e => { e.stopPropagation(); sc.draw = k; sc.src = ''; changed(true); renderLeft(); } }, `🎨 그림 ${nm}`)),
+      h('span', {}, sc.draw ? '그림은 고른 스타일에 맞춰 다시 그려져요' : '또는 사진을 복사해 이 칸을 누르고 Ctrl+V'), fin));
     wrap.tabIndex = 0;
     wrap.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/')); if (it) { e.preventDefault(); take(it.getAsFile()); } });
     wrap.addEventListener('dragover', e => e.preventDefault());

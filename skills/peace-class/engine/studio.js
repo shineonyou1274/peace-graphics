@@ -29,7 +29,7 @@
     timeline: { name: '연표', tip: '선 위로 때와 일이 차례로', fields: [['title', '위 제목', 'text'], ['events', '때 · 일', 'pairs', ['때', '일']], ['scale', '연도 간격대로 띄우기', 'check']], make: () => ({ title: '연표', events: [['1392', '사건'], ['1446', '사건']] }) },
     compare: { name: '둘 비교', tip: '양쪽이 엇갈려 들어온다', fields: [['left.title', '왼쪽 제목', 'text'], ['left.points', '왼쪽 내용', 'list'], ['right.title', '오른쪽 제목', 'text'], ['right.points', '오른쪽 내용', 'list'], ['vs', '가운데 글 (비우면 vs)', 'text']], make: () => ({ left: { title: 'A', points: ['내용'] }, right: { title: 'B', points: ['내용'] } }) },
     process: { name: '과정', tip: '단계가 차례로 채워진다', fields: [['title', '위 제목', 'text'], ['steps', '단계', 'list']], make: () => ({ title: '과정', steps: ['첫째', '둘째', '셋째'] }) },
-    photo: { name: '사진', tip: '사진을 넣고 짚을 곳을 눌러 이름표 달기', fields: [['src', '사진 (사진 위를 누르면 그 자리에 이름표)', 'photo'], ['title', '위 작은 글', 'text'], ['caption', '설명 (형광 = [[…]])', 'area']], make: () => ({ src: '', title: '', caption: '', pins: [] }) },
+    photo: { name: '사진', tip: '사진을 넣고 짚을 곳을 눌러 이름표 달기', fields: [['src', '사진 · 그림 (위를 누르면 그 자리에 이름표)', 'photo'], ['title', '위 작은 글', 'text'], ['caption', '설명 (형광 = [[…]])', 'area']], make: () => ({ src: '', title: '', caption: '', pins: [] }) },
     hangul: { name: '한글 조립', tip: '자모가 날아와 글자가 되고, 자모 하나가 바뀌면 뜻이 바뀐다', fields: [['title', '위 작은 글', 'text'], ['words', '낱말 · 뜻 (차례로 바뀜 · 같은 글자 수가 좋아요)', 'pairs', ['낱말  예) 불', '뜻  예) 타오르는 불']], ['note', '손글씨 메모', 'text']], make: () => ({ title: '자음 하나로 뜻이 바뀐다', words: [['불', '타오르는 불'], ['풀', '들판의 풀'], ['뿔', '소의 뿔']], note: '' }) },
     end: { name: '마무리', tip: '전할 것 한 문장 · 점이 마침표가 된다', fields: [['text', '마무리 한 마디 (손글씨)', 'text'], ['sub', '아래 작은 글', 'text']], make: () => ({ text: '마무리 한 마디', sub: '' }) },
   };
@@ -174,16 +174,17 @@
     fr.onerror = () => rej(fr.error); fr.readAsDataURL(file);
   });
   function photoField(sc, label) {
-    const take = async f => { if (!f || !/^image\//.test(f.type)) return alert('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); changed(true); renderLeft(); } catch (e) { alert(e.message); } };
+    const take = async f => { if (!f || !/^image\//.test(f.type)) return alert('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); delete sc.draw; changed(true); renderLeft(); } catch (e) { alert(e.message); } };
     const fin = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: e => take(e.target.files[0]) });
     const wrap = h('div', { class: 'photo-f' });
-    if (sc.src) {
+    const shown = sc.draw && PeaceClass.ARTS?.[sc.draw] ? PeaceClass.artURL(sc.draw) : sc.src;
+    if (shown) {
       const pic = h('div', { class: 'pic', title: '누르면 그 자리에 이름표가 생겨요', onclick: e => {
         e.stopPropagation(); const r = img.getBoundingClientRect();
         (sc.pins = sc.pins || []).push({ x: +((e.clientX - r.left) / r.width * 100).toFixed(1), y: +((e.clientY - r.top) / r.height * 100).toFixed(1), label: '' });
         changed(true); renderLeft(); setTimeout(() => [...left.querySelectorAll('.s-scene.on .pins input')].at(-1)?.focus(), 0);
       } });
-      const img = h('img', { src: sc.src, alt: '' }); pic.append(img);
+      const img = h('img', { src: shown, alt: '' }); pic.append(img);
       (sc.pins || []).forEach((q, j) => pic.append(h('span', { class: 'mk', style: `left:${q.x}%;top:${q.y}%` }, String(j + 1))));
       wrap.append(pic);
       const list = h('div', { class: 'pins list' });
@@ -194,7 +195,8 @@
       wrap.append(list);
     }
     wrap.append(h('div', { class: 'pair' }, h('button', { class: 'plus', onclick: e => { e.stopPropagation(); fin.click(); } }, sc.src ? '사진 바꾸기' : '📷 사진 넣기'),
-      h('span', {}, '또는 사진을 복사해 이 칸을 누르고 Ctrl+V'), fin));
+      ...Object.entries(PeaceClass.ARTS || {}).map(([k, nm]) => h('button', { class: 'plus' + (sc.draw === k ? ' on' : ''), title: '사진 대신 스타일에 맞춰 그린 그림 (칠판이면 분필, 픽셀이면 도트)', onclick: e => { e.stopPropagation(); sc.draw = k; sc.src = ''; changed(true); renderLeft(); } }, `🎨 그림 ${nm}`)),
+      h('span', {}, sc.draw ? '그림은 고른 스타일에 맞춰 다시 그려져요' : '또는 사진을 복사해 이 칸을 누르고 Ctrl+V'), fin));
     wrap.tabIndex = 0;
     wrap.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(x => x.type.startsWith('image/')); if (it) { e.preventDefault(); take(it.getAsFile()); } });
     wrap.addEventListener('dragover', e => e.preventDefault());

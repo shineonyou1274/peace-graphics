@@ -23,6 +23,73 @@
   ];
   const styleOf = L => STYLES.find(s => s.id === (L.style || L.theme)) || STYLES[0];
 
+  // 그림 자료: 스타일마다 다르게 그린 그림(사진 대신). 판 650×540 · 사진과 같은 자리(%)를 짚을 수 있게 구도를 맞춘다
+  const ART = {
+    // 잎: 갈래 6개(단풍 · 플라타너스형) · 톱니 가장자리 · 굵은 잎맥 → 곁잎맥
+    leaf() {
+      const B = [220, 335], deg = Math.PI / 180;
+      const lobes = [[218, 150], [262, 250], [300, 372], [338, 440], [372, 378], [410, 240]];   // [방향°, 길이]
+      const rOf = a => {   // a: 165~490°
+        const t = Math.max(0, Math.min(1, (a - 168) / 30, (490 - a) / 34));
+        let r = 30 + 85 * t;
+        lobes.forEach(([c, L]) => { const d = Math.abs(a - c) / 34; if (d < 1) r = Math.max(r, L * Math.pow(1 - d, 0.62)); });
+        return r;
+      };
+      const pt = (a, r, o = B) => [o[0] + r * Math.cos(a * deg), o[1] + r * Math.sin(a * deg)];
+      const f = v => v.toFixed(1);
+      let out = '';
+      for (let a = 166; a <= 490; a += 0.5) { const tooth = 1 + 0.045 * ((a % 6) / 6); const [x, y] = pt(a, rOf(a) * (rOf(a) > 120 ? tooth : 1)); out += (out ? 'L' : 'M') + f(x) + ' ' + f(y); }
+      out += 'Z';
+      const veins = [], small = [];
+      lobes.forEach(([c, L]) => {
+        const e = pt(c, L * 0.94), m = pt(c - 3, L * 0.5);
+        veins.push(`M${B[0]} ${B[1]}Q${f(m[0])} ${f(m[1])} ${f(e[0])} ${f(e[1])}`);
+        [.28, .46, .64, .8].forEach(s => {
+          if (L * s < 50) return;
+          const o = pt(c - 3 * (1 - s), L * s);
+          [-1, 1].forEach(side => {
+            const bd = c + side * 42; let len = (L * (1 - s)) * 0.62 + 18;
+            for (let k = 0; k < 12; k++) { const q = pt(bd, len, o), dx = q[0] - B[0], dy = q[1] - B[1]; let ang = Math.atan2(dy, dx) / deg; while (ang < 165) ang += 360; while (ang > 525) ang -= 360; if (Math.hypot(dx, dy) < rOf(ang) * 0.9) break; len *= 0.85; }
+            const q = pt(bd, len, o), cq = pt(bd - side * 12, len * 0.5, o);
+            small.push(`M${f(o[0])} ${f(o[1])}Q${f(cq[0])} ${f(cq[1])} ${f(q[0])} ${f(q[1])}`);
+          });
+        });
+      });
+      const stem = `M${B[0]} ${B[1]}Q120 380 12 462`;
+      return { w: 650, h: 540, out, veins: veins.join(''), small: small.join(''), stem };
+    },
+  };
+  // 스타일에 맞춰 칠하기. 반환: SVG 글(draw-on 은 class dw · 채움은 class fl)
+  const artSVG = (name, sid, acc) => {
+    const g = ART[name](); const V = `viewBox="0 0 ${g.w} ${g.h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"`;
+    const P = (d, a) => `<path d="${d}" pathLength="1" ${a}/>`;
+    const lines = (st, w1, w2, w3, extra = '') => P(g.stem, `class="dw" fill="none" stroke="${st}" stroke-width="${w1 * 1.6}" stroke-linecap="round" ${extra}`) + P(g.out, `class="dw" fill="none" stroke="${st}" stroke-width="${w1}" stroke-linejoin="round" ${extra}`)
+      + P(g.veins, `class="dw" fill="none" stroke="${st}" stroke-width="${w2}" stroke-linecap="round" ${extra}`) + P(g.small, `class="dw" fill="none" stroke="${st}" stroke-width="${w3}" stroke-linecap="round" opacity=".8" ${extra}`);
+    const S = {
+      dark: () => `<defs><filter id="ag-glow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
+        + `<path class="fl" d="${g.out}" fill="${acc}" opacity=".1"/><g filter="url(#ag-glow)">${lines(acc, 4, 3, 1.6)}</g>`,
+      light: () => `<defs><pattern id="ag-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="2" height="7" fill="#1a1a1a"/></pattern></defs>`
+        + `<path class="fl" d="${g.out}" fill="url(#ag-hatch)" opacity=".28"/>${lines('#141414', 3.5, 2.6, 1.2)}`,
+      board: () => `<defs><pattern id="ag-chalk" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(-28)"><rect width="5" height="16" fill="#9be59a"/></pattern></defs>`
+        + `<g filter="url(#pc-chalk)"><path class="fl" d="${g.out}" fill="url(#ag-chalk)" opacity=".55"/>${lines('#f4f3ea', 7, 5, 2.6)}</g>`,
+      note: () => `<path class="fl" d="${g.out}" fill="#a8ef6a" opacity=".6" transform="translate(9 7)"/>${lines('#2f5bd3', 3, 2.4, 1.3)}`,
+      pop: () => `<path class="fl" d="${g.out}" fill="#111" transform="translate(14 14)"/><path class="fl" d="${g.out}" fill="#2ee67a"/>${lines('#111', 9, 6, 3)}`,
+      grid: () => `<path class="fl" d="${g.out}" fill="${acc}" opacity=".12"/>${lines(acc, 3.5, 2.6, 1.3)}`
+        + `<g class="fl" fill="none" stroke="${acc}" stroke-width="1.6" stroke-dasharray="6 6"><line x1="220" y1="335" x2="640" y2="165"/><circle cx="220" cy="335" r="22"/></g>`,
+      night: () => `<g class="fl" fill="none" stroke="#e8f1ff" stroke-width="1.4" stroke-dasharray="8 7" opacity=".6"><circle cx="220" cy="335" r="160"/><circle cx="220" cy="335" r="360"/><line x1="0" y1="335" x2="650" y2="335"/><line x1="220" y1="0" x2="220" y2="540"/></g>`
+        + lines('#e8f1ff', 3, 2.4, 1.2),
+      ink: () => `<defs><radialGradient id="ag-wash" cx="40%" cy="55%" r="65%"><stop offset="0" stop-color="#111" stop-opacity=".55"/><stop offset=".7" stop-color="#111" stop-opacity=".22"/><stop offset="1" stop-color="#111" stop-opacity=".08"/></radialGradient></defs>`
+        + `<g filter="url(#pc-ink)"><path class="fl" d="${g.out}" fill="url(#ag-wash)"/>${lines('#141414', 6, 4.5, 2)}</g>`,
+      craft: () => `<defs><filter id="ag-paper" x="-5%" y="-5%" width="115%" height="115%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="2" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -.9 .55" result="s"/><feComposite in="s" in2="SourceGraphic" operator="in" result="t"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="t"/></feMerge></filter></defs>`
+        + `<path class="fl" d="${g.out}" fill="#000" opacity=".22" transform="translate(10 12)"/><g class="fl" filter="url(#ag-paper)"><path d="${g.stem}" fill="none" stroke="#2f7d32" stroke-width="14" stroke-linecap="round"/><path d="${g.out}" fill="#43a047" stroke="#fff" stroke-width="5"/><path d="${g.veins}" fill="none" stroke="#c5e8a5" stroke-width="9" stroke-linecap="round"/><path d="${g.small}" fill="none" stroke="#9ed36d" stroke-width="4" stroke-linecap="round"/></g>`,
+      pixel: () => `<path d="${g.stem}" fill="none" stroke="#008751" stroke-width="18" stroke-linecap="round"/><path d="${g.out}" fill="#00e436" stroke="#1d2b53" stroke-width="10"/><path d="${g.veins}" fill="none" stroke="#008751" stroke-width="10" stroke-linecap="round"/>`,
+      cinema: () => `<defs><radialGradient id="ag-cine" cx="62%" cy="28%" r="80%"><stop offset="0" stop-color="#c9f27a"/><stop offset=".45" stop-color="#3c8d2f"/><stop offset="1" stop-color="#0a2a12"/></radialGradient><filter id="ag-rim"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
+        + `<path class="fl" d="${g.out}" fill="url(#ag-cine)"/><g opacity=".55">${lines('#eaffc2', 0, 2.4, 1.1)}</g><g filter="url(#ag-rim)">${P(g.out, `class="dw" fill="none" stroke="${acc}" stroke-width="3"`)}${P(g.stem, `class="dw" fill="none" stroke="${acc}" stroke-width="5" stroke-linecap="round"`)}</g>`,
+    };
+    return { w: g.w, h: g.h, svg: `<svg xmlns="http://www.w3.org/2000/svg" ${V}>${(S[sid] || S.dark)()}</svg>` };
+  };
+  const ARTS = { leaf: '잎' };
+
   function mount(stage, L, opt = {}) {
   const R = L.ratio === '9:16';
   const W = R ? 1080 : 1920, H = R ? 1920 : 1080, U = Math.min(W, H) / 100;
@@ -582,11 +649,12 @@
     let b;
     return {
       dur, hits: [[0.2, 'write'], [2.0, 'end']],
-      measure() { b = box(tx); this.dotIn = { x: b.x - 2 * U, y: b.y + b.h * .6 }; this.dotOut = { x: b.x + b.w + 2.2 * U, y: b.y + b.h * .74 }; },
+      measure() { b = box(tx); this.dotIn = { x: b.x - 2 * U, y: b.y + b.h * .6 }; const dw = (dot && box(dot).w) || 0; this.dotOut = { x: b.x + b.w + Math.max(2.2 * U, dw * .75), y: b.y + b.h * .74 }; },
       update(lt) { wipe(tx, eio(p(lt, 0.2, 1.8))); if (sub) { sub.style.opacity = eo(p(lt, 2.2, 2.8)); } },
       dotAt(lt) {
         const k = eio(p(lt, 0.2, 1.8)); let pt = { x: lerp(this.dotIn.x, b.x + b.w, k), y: this.dotIn.y };
-        if (lt >= 1.8) pt = arc(pt, this.dotOut, eio(p(lt, 1.8, 2.05)), 3 * U);
+        if (lt >= 1.8) { const bb = box(tx), dw = box(dot).w || 0, o = { x: bb.x + bb.w + Math.max(2.2 * U, dw * .75), y: this.dotOut.y };   // 다가가기(예고편)로 글이 커져도 마침표 자리를 따라간다
+          pt = arc(pt, o, eio(p(lt, 1.8, 2.05)), 3 * U); }
         const beat = lt > 2.05 ? Math.max(0, Math.sin((lt - 2.05) * Math.PI * 2 / 0.9)) * (lt < 3.9 ? 0.35 : 0) : 0;
         return { ...pt, s: 1 + beat };
       },
@@ -597,13 +665,18 @@
   // sc.src(사진 · data URL 또는 경로) · sc.title(위 작은 글) · sc.caption(설명 · [[형광]]) · sc.pins[{x,y,label}](사진 위 % 자리)
   T.photo = (sc, root) => {
     const PIXEL = STY.id === 'pixel';
-    if (!sc.src) throw new Error('사진을 넣어 주세요');
+    const DRAW = sc.draw && ART[sc.draw] ? artSVG(sc.draw, STY.id, ACC) : null;   // 그림 자료(사진 대신 · 스타일에 맞춰 그림)
+    if (!sc.src && !DRAW) throw new Error('사진을 넣어 주세요');
     const pins = (sc.pins || []).filter(q => q && q.x != null && q.y != null);
     const hasSide = !!(sc.title || sc.caption);
     // 사진 칸: 16:9 는 왼쪽(글이 있으면 62%), 9:16 은 위
     const A = R ? { x: S.x, y: S.y, w: S.w, h: hasSide ? S.h * .64 : S.h } : { x: S.x, y: S.y, w: hasSide ? S.w * .62 : S.w, h: S.h };
     const box0 = el('div', 'abs photo', root); place(box0, A.x, A.y, A.w, A.h);
-    const zoom = el('div', 'abs', box0); const img = el('img', null, zoom); img.src = sc.src; img.alt = '';
+    const zoom = el('div', 'abs', box0); if (DRAW) box0.classList.add('drawn');
+    const INLINE = DRAW && !PIXEL;   // 픽셀은 그림도 네모 칸으로 바꾸려고 img 로
+    const img = INLINE ? el('div', null, zoom) : el('img', null, zoom);
+    if (INLINE) img.innerHTML = DRAW.svg; else { img.src = DRAW ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(DRAW.svg) : sc.src; img.alt = ''; }
+    const dws = INLINE ? [...img.querySelectorAll('.dw')] : [], fls = INLINE ? [...img.querySelectorAll('.fl')] : [];
     css(img, { position: 'absolute', inset: '0', width: '100%', height: '100%', display: 'block' });
     const pinEls = pins.map(q => { const g = el('div', 'pin', zoom); el('span', 'ring', g); const lb = q.label ? el('div', 'pinlab qa', g, q.label) : null; if (q.label) TEXTS.push(q.label); return { q, g, lb }; });
     let side = null, kick = null, cap = null;
@@ -621,7 +694,7 @@
     const zs = lt => 1 + 0.07 * eio(p(lt, 0.15, dur));
     const zq = (q, lt) => { const k = zs(lt); return { x: O.x + (q.x - O.x) * k, y: O.y + (q.y - O.y) * k }; };   // 다가가도 짚은 곳을 따라간다
     const layout = () => {
-      const nw = img.naturalWidth || 4, nh = img.naturalHeight || 3, k = Math.min(A.w / nw, A.h / nh), w = nw * k, h = nh * k;
+      const nw = DRAW ? DRAW.w : img.naturalWidth || 4, nh = DRAW ? DRAW.h : img.naturalHeight || 3, k = Math.min(A.w / nw, A.h / nh), w = nw * k, h = nh * k;
       F = { x: (A.w - w) / 2, y: (A.h - h) / 2, w, h };
       place(zoom, F.x, F.y, w, h); css(zoom, { overflow: 'hidden', borderRadius: px(1.2 * U) });
       // 다가가는 곳: 짚는 곳들의 가운데
@@ -632,6 +705,7 @@
     return {
       dur, hits: [[0.15, 'sweep'], ...(cap ? [[tCap, 'words']] : []), ...(cap && cap.querySelector('.hl') ? [[tCap + 1.0, 'mark']] : []), ...pt.map(t => [t, 'pop'])],
       async prepare() {
+        if (INLINE) return;
         if (!img.complete) await new Promise(r => { img.onload = img.onerror = r; }); if (!img.naturalWidth) throw new Error('사진을 읽지 못했어요');
         if (PIXEL) {   // 픽셀 스타일: 사진도 큰 네모 칸으로(가로 72칸 · 색 단계 줄이기)
           const cw = 72, ch = Math.max(1, Math.round(cw * img.naturalHeight / img.naturalWidth)), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
@@ -647,7 +721,10 @@
       },
       update(lt) {
         const k = eio(p(lt, 0.15, 1.0));
-        zoom.style.clipPath = `inset(0 ${((1 - k) * 100).toFixed(2)}% 0 0 round ${1.2 * U}px)`;
+        if (INLINE) {   // 그림: 선이 그려지고 색이 스민다
+          const n = dws.length; dws.forEach((e, j) => { const a = eio(p(lt, 0.15 + j / n * 0.6, 0.9 + j / n * 0.9)); e.style.strokeDasharray = '1 1'; e.style.strokeDashoffset = (1 - a).toFixed(4); });
+          fls.forEach(e => { e.style.opacity = ''; e.style.opacity = (+(e.getAttribute('opacity') || 1) * eo(p(lt, 0.7, 1.6))).toFixed(3); });
+        } else zoom.style.clipPath = `inset(0 ${((1 - k) * 100).toFixed(2)}% 0 0 round ${1.2 * U}px)`;
         img.style.transform = `scale(${zs(lt)})`;
         if (kick) kick.style.opacity = eo(p(lt, 0.4, 0.9));
         if (cap) { wipe(cap, eio(p(lt, tCap, tCap + 1.0))); cap.querySelectorAll('.hl').forEach((e, j) => { const k = eio(p(lt, tCap + 1.0 + j * 0.3, tCap + 1.4 + j * 0.3)); e.style.setProperty('--k', k); e.classList.toggle('on', k > .5); }); }
@@ -1054,7 +1131,7 @@
     });
   }
 
-  window.PeaceClass = { mount, player, STYLES, wav, wavBase64 };
+  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
   // 수업용 파일 · 렌더용 페이지: LESSON 과 #stage 가 있으면 바로 띄운다
   const st = document.getElementById('stage');
   if (window.LESSON && st && !window.__NO_AUTO__) {

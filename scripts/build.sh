@@ -22,3 +22,7 @@ for NAME in "${names[@]}"; do
   VERSION=$(grep -m1 'version:' "$SK" | awk '{print $2}')
   echo "✅ $OUT (v$VERSION · $(unzip -l "$OUT" | tail -1 | awk '{print $2}') files)"
 done
+
+# 저장소의 받기용 사본도 새로 고친다 (README 의 다운로드 링크)
+mkdir -p download && cp dist/*.skill download/
+echo "↪ download/ 갱신"

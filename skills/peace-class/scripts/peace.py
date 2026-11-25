@@ -3,7 +3,8 @@
   python3 peace.py new   <작업 폴더> [--from 예시이름]   새 작업 폴더 (예시: math-slope · history-joseon · science-orbit …)
   python3 peace.py build <작업 폴더>                    lesson.html + 글꼴 (브라우저로 열면 바로 미리보기)
   python3 peace.py check <작업 폴더>                    점검 · 소리 · 정지 화면 시트 · 화면 글자 목록   ⏸ 선생님 확인
-  python3 peace.py video <작업 폴더> [--draft]          mp4 (draft = 빠른 720p)
+  python3 peace.py share <작업 폴더>                    파일 하나짜리 수업용 HTML (글꼴 · 수식 · 소리 포함 · 어디서나 재생 · 공유용)
+  python3 peace.py video <작업 폴더> [--draft]          mp4 (선택 · Node + Playwright + ffmpeg 가 있을 때 · draft = 빠른 720p)
 
 작업 폴더: lesson.json · voice/(녹음) · build/(결과)
 """
@@ -13,8 +14,6 @@ import re
 import shutil
 import subprocess
 import sys
-import urllib.parse
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -37,20 +36,32 @@ def wav_len(path):
     return int(m[1]) * 3600 + int(m[2]) * 60 + float(m[3]) if m else 0
 
 
-FONTS = [("Noto Sans KR", 500, "kr-500"), ("Noto Sans KR", 900, "kr-900"), ("Nanum Pen Script", None, "pen"), ("Anton", None, "anton")]
-FIXED = '개념흔한실수바르게vsPEACECLASS0123456789/:·—+-.,()%' + ''.join(chr(c) for c in range(32, 127))
+FONTS = ['kr-500', 'kr-900', 'pen', 'anton']   # 스킬에 담긴 글꼴(Pretendard · Nanum Pen Script · Anton · 모두 OFL)
+FIXED = '개념흔한실수바르게vsPEACECLASS0123456789/:·—+-.,()%→✕✓' + ''.join(chr(c) for c in range(32, 127))
 
 
 def fonts(text):
-    """쓴 글자만 담은 글꼴 조각을 받는다(글자를 바꾸면 build 를 다시)."""
+    """스킬에 담긴 글꼴에서 쓴 글자만 잘라 fonts/ 에 둔다(인터넷 없이). fontTools 가 없으면 통째로 복사한다."""
     chars = ''.join(sorted(set(text + FIXED)))
     out = os.path.join(work, 'fonts'); os.makedirs(out, exist_ok=True)
-    for fam, w, name in FONTS:
-        q = 'https://fonts.googleapis.com/css2?family=' + fam.replace(' ', '+') + (f':wght@{w}' if w else '') + '&text=' + urllib.parse.quote(chars)
-        css = urllib.request.urlopen(urllib.request.Request(q, headers={'User-Agent': 'Mozilla/5.0 Chrome/120'})).read().decode()
-        url = re.search(r'url\((.*?)\)', css).group(1)
-        open(os.path.join(out, name + '.woff2'), 'wb').write(urllib.request.urlopen(url).read())
-    print(f'글꼴 {len(FONTS)}개 · 글자 {len(chars)}개 → fonts/')
+    src = os.path.join(SKILL, 'assets', 'fonts')
+    try:
+        from fontTools import subset
+        for name in FONTS:
+            o = subset.Options(); o.flavor = 'woff2'; o.layout_features = ['*']
+            f = subset.load_font(os.path.join(src, name + '.woff2'), o)
+            sb = subset.Subsetter(o); sb.populate(text=chars); sb.subset(f)
+            subset.save_font(f, os.path.join(out, name + '.woff2'), o)
+        print(f'글꼴 {len(FONTS)}개 · 쓴 글자 {len(chars)}개만 → fonts/')
+    except Exception as e:  # fontTools 없음 · woff2 압축 도구 없음
+        for name in FONTS:
+            shutil.copy(os.path.join(src, name + '.woff2'), os.path.join(out, name + '.woff2'))
+        print(f'글꼴 {len(FONTS)}개 통째로 → fonts/ ({type(e).__name__})')
+
+
+def data_uri(path, mime):
+    import base64
+    return f'data:{mime};base64,' + base64.b64encode(open(path, 'rb').read()).decode()
 
 
 if cmd == 'new':
@@ -115,5 +126,32 @@ elif cmd == 'video':
     for i in range(n):
         os.remove(os.path.join(B, f's{i}.mp4'))
     print('→', os.path.relpath(out, work))
+elif cmd == 'share':
+    # 파일 하나짜리 수업용 HTML: 글꼴 · 수식 · 소리를 모두 안에 담는다. 아무 브라우저에서 열면 재생된다.
+    lesson = json.load(open(os.path.join(work, 'lesson.json'), encoding='utf-8'))
+    eng = os.path.join(work, 'engine')
+    style = open(os.path.join(eng, 'style.css'), encoding='utf-8').read()
+    for name in FONTS:
+        style = style.replace(f"url('../fonts/{name}.woff2')", f"url('{data_uri(os.path.join(work, 'fonts', name + '.woff2'), 'font/woff2')}')")
+    kcss = open(os.path.join(eng, 'katex', 'katex.min.css'), encoding='utf-8').read()
+    kcss = re.sub(r'url\((fonts/[^)]+\.woff2)\)', lambda m: f"url({data_uri(os.path.join(eng, 'katex', m[1]), 'font/woff2')})", kcss)
+    kcss = re.sub(r',url\(fonts/[^)]+\.(woff|ttf)\) format\("(woff|truetype)"\)', '', kcss)
+    audio = ''
+    wav = os.path.join(B, 'music.wav')
+    if os.path.exists(wav):
+        mp3 = os.path.join(B, 'music.mp3')
+        r = subprocess.run([FF, '-y', '-v', 'error', '-i', wav, '-ac', '1', '-b:a', '96k', mp3])
+        audio = data_uri(mp3, 'audio/mpeg') if r.returncode == 0 else data_uri(wav, 'audio/wav')
+    data = json.dumps(lesson, ensure_ascii=False).replace('</', '<\\/')
+    js = lambda f: open(os.path.join(eng, *f), encoding='utf-8').read().replace('</script', '<\\/script')
+    html = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{lesson.get('title', '수업 영상')}</title><style>{kcss}</style><style>{style}</style></head><body><div id="stage"></div>
+<script>{js(['katex', 'katex.min.js'])}</script>
+<script>window.LESSON = {data}; window.AUDIO_SRC = {json.dumps(audio)};</script>
+<script>{js(['runtime.js'])}</script></body></html>"""
+    name = re.sub(r'[\\/:*?"<>|\s]+', '_', lesson.get('title', 'lesson'))
+    out = os.path.join(work, f'{name}_수업용.html')
+    open(out, 'w', encoding='utf-8').write(html)
+    print(f'→ {os.path.basename(out)} ({os.path.getsize(out) / 1e6:.1f}MB) — 이 파일 하나만 보내면 어디서나 재생됩니다')
 else:
     sys.exit(__doc__)

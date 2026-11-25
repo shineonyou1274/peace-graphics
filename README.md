@@ -22,15 +22,19 @@ Claude 에 스킬을 올리고 이렇게 말합니다.
 수업 영상 만들어줘. 중2 일차함수 기울기, 수업 도입 40초.
 원문 사실: y = 2x + 1 에서 x가 1 늘면 y는 2 는다 …
 ```
-Claude 가 장면 표를 보여 주고(⏸ 확인) → 정지 화면과 **화면 글자 목록**을 보여 주고(⏸ 교과서와 대조) → 영상을 굽습니다.
+Claude 가 장면 표를 보여 주고(⏸ 확인) → 스타일 시안(형광 · 종이 · 칠판)과 **화면 글자 목록**을 보여 주고(⏸ 교과서와 대조) → **수업용 HTML 파일 하나**를 드립니다.
+
+**결과물 = 파일 하나 (`<제목>_수업용.html`, 1~2MB)** — 글꼴 · 수식 · 소리가 모두 안에 들어 있어 인터넷 · 설치 없이 아무 브라우저에서 열면 재생됩니다. 다른 선생님께 그대로 보내면 됩니다.
+수업 중: 클릭 · 스페이스 = 재생/멈춤 · → ← = 장면 넘기기 · F = 전체 화면 · R = 처음부터. mp4 가 필요하면 굽는 도구가 있는 환경에서 따로 만듭니다.
 직접 돌릴 때는:
 ```bash
 python3 skills/peace-class/scripts/peace.py new   내수업 --from math-slope   # 예시로 시작 → 내수업/lesson.json 고치기
 python3 skills/peace-class/scripts/peace.py build 내수업                     # 내수업/lesson.html 을 브라우저로 열면 바로 미리보기
 python3 skills/peace-class/scripts/peace.py check 내수업                     # 점검 · 소리 · 정지 화면
-python3 skills/peace-class/scripts/peace.py video 내수업                     # mp4
+python3 skills/peace-class/scripts/peace.py share 내수업                     # 수업용 HTML 파일 하나 (공유용)
+python3 skills/peace-class/scripts/peace.py video 내수업                     # (선택) mp4
 ```
-필요한 것: Python 3 (`pip install numpy scipy pillow`) · Node.js + Playwright(chromium) · ffmpeg
+필요한 것: Python 3 (`pip install numpy scipy pillow fonttools brotli`) · 글꼴은 스킬에 들어 있어 인터넷이 필요 없습니다. 정지 화면 점검과 mp4 는 Node.js + Playwright(chromium) + ffmpeg 가 있을 때만.
 
 ---
 

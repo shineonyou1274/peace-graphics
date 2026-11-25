@@ -9,7 +9,7 @@
   // 안전 영역: 9:16 은 쇼츠 화면의 버튼 · 자막 자리를 비운다(위 300 · 아래 480 · 오른쪽 200 · 왼쪽 60)
   const S = R ? { x: 60, y: 300, w: 820, h: 1140 } : { x: 0.075 * W, y: 0.14 * H, w: 0.85 * W, h: 0.72 * H };
   const SUBJ = { '수학': '#d7ff00', '과학': '#3ee0ff', '국어': '#ff6b9a', '영어': '#ffb21e', '사회': '#9b7bff' };
-  const ACC = L.accent || SUBJ[L.subject] || '#d7ff00';
+  let ACC = L.accent || SUBJ[L.subject] || '#d7ff00';
   const BAD = '#ff4d5e';
 
   // ---------- 작은 도구 ----------
@@ -48,7 +48,9 @@
   const stage = document.getElementById('stage');
   css(stage, { width: px(W), height: px(H) });
   stage.style.setProperty('--acc', ACC); stage.style.setProperty('--bad', BAD); stage.style.setProperty('--u', px(U));
-  if (L.theme === 'light') stage.classList.add('theme-light');
+  if (L.theme === 'light' || L.theme === 'board') stage.classList.add('theme-' + L.theme);
+  if (L.theme === 'light' && !L.accent) { ACC = { '수학': '#3a7d00', '과학': '#0077b6', '국어': '#d6336c', '영어': '#d97706', '사회': '#6741d9' }[L.subject] || '#3a7d00'; stage.style.setProperty('--acc', ACC); }
+  if (L.theme === 'board' && !L.accent) { ACC = '#ffe066'; stage.style.setProperty('--acc', ACC); }
   const HITS = [], TEXTS = [];
   const scenes = [];
 
@@ -536,15 +538,36 @@
   })();
   Object.assign(window, { seek, DUR, HITS, QA, TEXTS, SCENES: scenes.map(s => ({ n: s.i + 1, type: s.sc.type, t0: +s.t0.toFixed(3), dur: +s.dur.toFixed(3) })) });
 
-  // ---------- 브라우저로 열었을 때: 미리보기 재생 ----------
+  // ---------- 브라우저로 열었을 때: 수업용 재생기 ----------
+  // 스페이스 · 클릭 = 재생/멈춤 · → / ← = 다음/앞 장면 · F = 전체 화면 · R = 처음부터
   if (!window.__RENDER_MODE__) window.READY.then(() => {
-    const fit = () => { const k = Math.min(innerWidth / W, innerHeight / H); stage.style.transform = `scale(${k})`; css(document.body, { width: '100vw', height: '100vh', display: 'grid', placeItems: 'center' }); css(stage, { marginRight: px(W * k - W), marginBottom: px(H * k - H) }); };
+    css(document.body, { width: '100vw', height: '100vh', display: 'grid', placeItems: 'center', cursor: 'pointer', fontFamily: "'KR', sans-serif" });
+    const fit = () => { const k = Math.min(innerWidth / W, innerHeight / H); stage.style.transform = `scale(${k})`; css(stage, { marginRight: px(W * k - W), marginBottom: px(H * k - H) }); };
     fit(); addEventListener('resize', fit);
-    const au = new Audio('build/music.wav'); let playing = false, t = 0, last = 0;
-    const loop = now => { if (playing) { t += (now - last) / 1000; if (t >= DUR) { t = 0; au.currentTime = 0; } } last = now; seek(t); requestAnimationFrame(loop); };
+    const au = new Audio(window.AUDIO_SRC || 'build/music.wav'); au.preload = 'auto';
+    let playing = false, started = false, t = 0, last = performance.now(), idle = 0;
+    const poster = Math.max(0, scenes[0].dur - 0.6);   // 처음 열면 제목이 다 나온 화면을 표지로
+    const hint = el('div', null, document.body);
+    css(hint, { position: 'fixed', left: '50%', bottom: '4vh', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: '999px', background: 'rgba(0,0,0,.72)', color: '#fff', font: "500 15px 'KR', sans-serif", letterSpacing: '.02em', transition: 'opacity .4s', zIndex: 9 });
+    hint.textContent = '▶ 클릭 · 스페이스 = 재생   → ← 장면 넘기기   F 전체 화면';
+    const start0 = scenes.map(s => s.t0);
+    const go = nt => { started = true; t = clamp(nt, 0, DUR - 0.01); try { au.currentTime = t; } catch (e) {} idle = 0; };
+    const loop = now => {
+      const dt = (now - last) / 1000; last = now;
+      if (playing) { t += dt; if (t >= DUR - 0.01) { t = DUR - 0.01; playing = false; au.pause(); } else if (Math.abs(au.currentTime - t) > 0.25 && !au.paused) au.currentTime = t; }
+      idle += dt; hint.style.opacity = playing && idle > 2.5 ? 0 : 1;
+      seek(started ? t : poster); requestAnimationFrame(loop);
+    };
     requestAnimationFrame(loop);
-    const toggle = () => { playing = !playing; if (playing) { au.currentTime = t; au.play().catch(() => {}); } else au.pause(); };
+    const toggle = () => { started = true; if (t >= DUR - 0.02) go(0); playing = !playing; if (playing) { au.currentTime = t; au.play().catch(() => {}); } else au.pause(); idle = 0; };
     addEventListener('click', toggle);
-    addEventListener('keydown', e => { if (e.code === 'Space') toggle(); if (e.code === 'ArrowRight') { t = Math.min(DUR, t + 2); au.currentTime = t; } if (e.code === 'ArrowLeft') { t = Math.max(0, t - 2); au.currentTime = t; } });
+    addEventListener('mousemove', () => { idle = 0; });
+    addEventListener('keydown', e => {
+      if (e.code === 'Space') { e.preventDefault(); toggle(); }
+      else if (e.code === 'ArrowRight') { const n = start0.find(x => x > t + 0.05); go(n != null ? n : DUR - 0.01); }
+      else if (e.code === 'ArrowLeft') { const cur = [...start0].reverse().find(x => x <= t - 0.6); go(cur != null ? cur : 0); }
+      else if (e.code === 'KeyF') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
+      else if (e.code === 'KeyR') go(0);
+    });
   });
 })();

@@ -6,6 +6,9 @@
 
 :root { --bg: #0f0f12; --ink: #f4f4f0; --dim: #8a8a90; --line: #2c2c33; --acc: #d7ff00; --bad: #ff4d5e; --u: 10.8px; }
 .theme-light { --bg: #f6f5f0; --ink: #141416; --dim: #77777d; --line: #d9d8d2; }
+.theme-board { --bg: #1e3b2f; --ink: #f3f1e7; --dim: #a6b9ab; --line: rgba(243,241,231,.2); }
+.theme-board #stage, #stage.theme-board { background-image: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.06), transparent 60%), radial-gradient(ellipse at 80% 90%, rgba(0,0,0,.25), transparent 55%); }
+.theme-board .big, #stage.theme-board .big { font-family: 'PEN', 'KR', cursive; font-weight: 400; letter-spacing: .01em; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { background: #000; overflow: hidden; }
@@ -29,8 +32,9 @@ html, body { background: #000; overflow: hidden; }
 .word { display: inline-block; white-space: pre; }
 .key { position: relative; display: inline; white-space: nowrap; }
 .key .bar { position: absolute; left: -.08em; right: -.08em; top: .12em; bottom: .02em; background: var(--acc); opacity: .9; z-index: -1; transform-origin: 0 50%; transform: scaleX(0); }
-.key.on { color: #111; }
-.theme-light .key.on { color: #111; }
+.key.on, .key.on .word { color: #111; }
+.theme-light .key.on, .theme-light .key.on .word { color: #fff; }
+.theme-light .hl.on, .theme-light .hl.on * { color: #fff !important; }
 .textwrap { position: relative; z-index: 0; }
 .head { font-weight: 900; color: var(--dim); letter-spacing: .02em; }
 
@@ -39,7 +43,7 @@ html, body { background: #000; overflow: hidden; }
 .katex .text, .katex .text * { font-family: KaTeX_Main, 'KR', serif; }
 .hl { position: relative; z-index: 0; padding: 0 .08em; }
 .hl::before { content: ''; position: absolute; inset: -.08em -.06em; background: var(--acc); z-index: -1; transform-origin: 0 50%; transform: scaleX(var(--k, 0)); border-radius: .08em; }
-.hl.on, .hl.on .mord, .hl.on .mbin, .hl.on .mrel, .hl.on .mopen, .hl.on .mclose, .hl.on .mpunct { color: #111; }
+.hl.on, .hl.on * { color: #111 !important; }
 
 /* 점: 영상 전체를 끌고 가는 형광 점 하나 */
 .dot { position: absolute; left: 0; top: 0; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); margin: calc(var(--u) * -1.3) 0 0 calc(var(--u) * -1.3); border-radius: 50%; background: var(--acc); z-index: 6; box-shadow: 0 0 calc(var(--u) * 2.4) color-mix(in srgb, var(--acc) 70%, transparent); will-change: transform; }

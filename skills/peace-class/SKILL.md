@@ -9,7 +9,7 @@ description: >
   "과학 개념 영상" · "연표 영상" · "역사 흐름 영상" · "영어 문장 구조 영상" · "국어 문법 영상" · "통계 그래프 영상" · "수업 쇼츠" ·
   "peace-class" · "/peace-class". 사용법을 배우려면 motion-studio-academy 의 선생님 코스.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # peace-class — 수업 모션 그래픽
@@ -42,20 +42,27 @@ python3 $SK/scripts/peace.py new  <작업 폴더> --from math-slope   # 예시�
 python3 $SK/scripts/peace.py build <작업 폴더>                   # lesson.html + 글꼴 (글을 바꾸면 다시)
 python3 $SK/scripts/peace.py check <작업 폴더>                   # 점검 · 소리 · build/정지화면.png · build/화면글자.md
 ```
-- 처음이면: `pip install numpy scipy pillow` · Node 와 Playwright(chromium) · ffmpeg 가 있어야 한다(클라우드 컨테이너에는 대개 있다).
+- 필요한 것: Python 3 + `numpy scipy pillow`(소리) · `fonttools brotli`(글꼴을 쓴 글자만 잘라 작게 — 없으면 통째로 담는다). 글꼴은 스킬에 들어 있어 **인터넷이 필요 없다**.
+- 정지 화면 · 점검(check)과 mp4 는 Node + Playwright + ffmpeg 가 있을 때만. 없는 환경이면 3장의 HTML 로 간다.
 - `check` 의 **점검**(안전 영역 넘침 · 글 덩어리 겹침)이 "이상 없음"이 될 때까지 고친다 — 글을 줄이거나 장면을 나누거나 `size` 를 낮춘다.
 - `정지화면.png` 를 Read 로 **먼저 Claude 가** 본다: 글 겹침 · 잘림 · 형광이 글을 가리는지 · 빈 화면. 고친 뒤에 선생님에게 보인다.
 - 선생님에게 보일 것: 정지화면 시트 + **화면글자.md**("교과서와 한 줄씩 대조해 주세요") + 한 줄: "장면 N개, 약 M초예요. 영상으로 구울까요?"
 - `lesson.html` 은 브라우저로 열면 소리와 함께 바로 미리보기(클릭 = 재생/멈춤 · ← → 2초). 선생님 컴퓨터에 폴더가 있으면 이걸 권한다.
 
-## 3. 굽기 → 전달
+## 3. 전달 — 기본은 수업용 HTML 파일 하나
 ```bash
-python3 $SK/scripts/peace.py video <작업 폴더> --draft   # (선택) 빠른 720p 초안
-python3 $SK/scripts/peace.py video <작업 폴더>           # 본 영상 → build/<제목>.mp4 (1080p 30fps · 움직임 잔상)
+python3 $SK/scripts/peace.py share <작업 폴더>          # → <제목>_수업용.html (글꼴 · 수식 · 소리를 모두 안에 담은 파일 하나 · 1~2MB)
 ```
-- 40초 영상이 클라우드에서 약 1분. 구간을 나눠 동시에 굽는다.
-- `SendUserFile` 로 mp4 를 보낸다(display: render). 함께: 장면 표 한 줄 요약 · 쓴 자료의 출처 · 알려진 한계.
-- 고칠 말이 오면 lesson.json 을 고치고 build → check → video. 시간만 바뀌면 그 장면 `dur` 만.
+- **이 파일이 기본 결과물이다.** 인터넷 · 설치 없이 아무 브라우저에서 열면 재생된다. 메신저 · 클래스룸 · 패들렛으로 다른 선생님께 그대로 보낼 수 있다.
+- 수업 중 조작: 클릭 · 스페이스 = 재생/멈춤 · → ← = 다음/앞 장면 · F = 전체 화면 · R = 처음부터. 멈춰 있으면 제목 화면이 표지로 보인다.
+- `SendUserFile` 로 보낸다(display: attach — 선생님이 내려받아 연다). 함께: 조작법 한 줄 · 쓴 자료의 출처 · 알려진 한계.
+
+### mp4 가 필요할 때 (선택)
+```bash
+python3 $SK/scripts/peace.py video <작업 폴더> [--draft]   # build/<제목>.mp4 (1080p 30fps) · draft = 빠른 720p
+```
+- Node.js · Playwright(chromium) · ffmpeg 가 있는 환경에서만 된다. 없으면 "mp4 는 이 환경에서 못 만들어요 — 수업용 HTML 을 쓰시거나, 화면 녹화로 mp4 를 만들 수 있어요"라고 알리고 HTML 을 준다. 설치를 우기지 않는다.
+- `check` 의 정지 화면도 같은 도구가 필요하다. 없으면 정지 화면 대신 수업용 HTML 을 먼저 보내 미리보기로 확인받는다.
 
 ## 4. 나레이션
 선생님 목소리가 가장 좋다. 장면마다 녹음 대본(한두 문장)을 주고, 받은 파일을 `voice/01.wav …` 로 두고 장면에 `"voice": "voice/01.wav"` → build 가 말 길이만큼 장면을 늘리고, 소리가 말하는 동안 배경음을 낮춘다. 목소리 합성은 하지 않는다(원하면 선생님이 직접 만든 파일을 받는다).
@@ -73,7 +80,8 @@ python3 $SK/scripts/peace.py video <작업 폴더>           # 본 영상 → bu
 - 예시 json 하나와 `장면틀.md` 표 한 줄을 함께 더한다.
 
 ## 함정
-- 한글 글꼴은 쓴 글자만 담은 조각이다 — 글을 바꾸면 `build` 를 다시(빠진 글자는 시스템 글꼴로 바뀐다).
+- 한글 글꼴은 쓴 글자만 담은 조각이다 — 글을 바꾸면 `build` 를 다시(빠진 글자는 시스템 글꼴로 바뀐다). 글꼴: Pretendard(본문 · 제목) · Nanum Pen Script(손글씨) · Anton(숫자 · 라벨) — 모두 OFL.
+- 스타일: `theme` = dark(형광 · 기본) / light(종이 · 밝은 교실) / board(칠판). 먼저 정할 때는 같은 장면을 세 스타일로 그려 보여 주고 고르게 한다.
 - 수식 안 한글은 `\text{…}` 안에. JSON 에서는 역슬래시를 두 번(`\\dfrac`).
 - 숨겨 둔 장면의 글꼴은 저절로 안 불러와진다 — runtime 이 READY 에서 글꼴을 직접 불러온 뒤 잰다(HUSH 광고에서 겪은 문제).
 - 형광 막대가 글자 높이보다 낮으면 짙은 글자의 윗부분이 어두운 바탕에 묻힌다 — 막대는 글자 전체를 덮는다.

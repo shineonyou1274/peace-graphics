@@ -8,9 +8,10 @@
   python3 peace.py video  <작업 폴더> [--draft]       mp4 (Node + Playwright + ffmpeg 가 있을 때)
   python3 peace.py blank  <출력.html>                 예시만 담은 빈 스튜디오 (배포용)
   python3 peace.py doctor                             이 컴퓨터에서 무엇이 되나 · mp4 에 무엇을 깔아야 하나
-  python3 peace.py voice  <작업 폴더> --sample 샘플.wav --sample-text "샘플에서 한 말"
-                                                      장면마다 say(대본)를 선생님 목소리로(Qwen3-TTS 목소리 복제 · 허깅페이스)
-                                                      pip install gradio_client · HF_TOKEN(허깅페이스 토큰) 권장 — 본인 목소리만
+  python3 peace.py voice-setup                        목소리 복제(Qwen3-TTS)를 이 작업 공간에 설치(처음 한 번 · 몇 분)
+  python3 peace.py voice  <작업 폴더> --sample 샘플.m4a --sample-text "샘플에서 한 말"
+                                                      장면마다 say(대본)를 선생님 목소리로 — 설치돼 있으면 이 작업 공간에서(토큰 · 외부 전송 없음),
+                                                      아니면 허깅페이스 데모(--remote · HF_TOKEN 권장) — 본인 목소리만
 
 필요한 것: Python 3 표준 라이브러리만. fontTools + brotli 가 있으면 글꼴을 쓴 글자만 잘라 파일이 작아진다.
 """
@@ -64,6 +65,18 @@ def doctor():
     print(f'  {ok(node)} Node.js {node or "없음"}')
     print(f'  {ok(pw == "OK")} Playwright + 크로미움 {"" if pw == "OK" else "(" + ("브라우저 없음" if pw == "NOBROWSER" else "없음") + ")"}')
     print(f'  {ok(ff)} ffmpeg {ff or "없음"}')
+    try:
+        import fontTools  # noqa: F401
+        ft = True
+    except ImportError:
+        ft = False
+    try:
+        import brotli  # noqa: F401
+        br = True
+    except ImportError:
+        br = False
+    print(f'  {ok(ft)} fontTools {"" if ft else "(없으면 수업용 파일에 글꼴을 통째로 담아 커짐 · pip install fonttools)"}')
+    print(f'  {ok(br)} brotli {"" if br else "(없으면 글꼴을 woff 로 담아 조금 커짐 · pip install brotli)"}')
     video = bool(node and pw == 'OK' and ff)
     print()
     print('결과: ' + ('mp4 영상까지 만들 수 있어요.' if video else '스튜디오 파일 · 수업용 파일은 돼요. mp4 는 아래를 깔아야 해요(또는 윈도우 화면 녹화 Win+Alt+R).'))
@@ -86,8 +99,35 @@ def doctor():
     print(json.dumps({'python': py, 'node': node, 'playwright': pw, 'ffmpeg': ff, 'video': video, 'os': osn}, ensure_ascii=False))
 
 
+def voice_setup():
+    """CPU 용 PyTorch · torchaudio(같은 버전) · qwen-tts 를 깔고 0.6B 목소리 복제 모델을 받아 둔다."""
+    try:
+        import torch, torchaudio, qwen_tts  # noqa: F401
+        print('✅ 이미 설치돼 있어요 (torch', torch.__version__, ')')
+    except Exception:
+        idx = 'https://download.pytorch.org/whl/cpu'
+        # torchaudio 가 torch 보다 늦게 나오므로, torchaudio 의 마지막 판에 torch 를 맞춘다
+        out = subprocess.run([sys.executable, '-m', 'pip', 'index', 'versions', 'torchaudio', '--index-url', idx], capture_output=True, text=True).stdout
+        m = re.search(r'torchaudio \(([\d.]+)', out)
+        ta = m[1] if m else None
+        pins = [f'torch=={".".join(ta.split(".")[:2])}.*', f'torchaudio=={ta}+cpu'] if ta else ['torch', 'torchaudio']
+        print('설치 중… (CPU 용 PyTorch ' + (ta or '최신') + ' · 몇 분)')
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *pins, '--index-url', idx], check=True)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'qwen-tts', 'soundfile'], check=True)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--force-reinstall', '--no-deps', *pins[1:], '--index-url', idx], check=True)
+    print('모델 받는 중… (Qwen/Qwen3-TTS-12Hz-0.6B-Base · 약 1~2GB · 처음 한 번)')
+    from huggingface_hub import snapshot_download
+    snapshot_download(VOICE_MODEL)
+    print('✅ 준비 끝 — python3 peace.py voice <작업 폴더> --sample 샘플 --sample-text "샘플에서 한 말"')
+
+
+VOICE_MODEL = os.environ.get('PEACE_VOICE_MODEL', 'Qwen/Qwen3-TTS-12Hz-0.6B-Base')
+
 if len(sys.argv) >= 2 and sys.argv[1] == 'doctor':
     doctor()
+    sys.exit(0)
+if len(sys.argv) >= 2 and sys.argv[1] == 'voice-setup':
+    voice_setup()
     sys.exit(0)
 if len(sys.argv) < 3:
     sys.exit(__doc__)
@@ -141,28 +181,39 @@ def audio_len(p):
 
 
 def font_files(text=None):
-    """글꼴 woff2 바이트. text 가 있으면 쓴 글자만 자른다(fontTools 가 없으면 통째로)."""
-    out = {}
+    """글꼴 바이트와 형식. text 가 있으면 쓴 글자만 자른다.
+    woff2 는 brotli 가 있어야 하고, 없으면 woff(zlib · 기본 내장)로 자른다. fontTools 가 없으면 통째로."""
+    out, fmt = {}, 'woff2'
     if text is not None:
         try:
             from fontTools import subset
+        except ImportError:
+            print('ℹ 글꼴 자르기 도구(fontTools)가 없어 글꼴을 통째로 담아요 — 파일이 커집니다(pip install fonttools brotli)')
+            subset = None
+        if subset:
+            try:
+                import brotli  # noqa: F401
+            except ImportError:
+                fmt = 'woff'
+                print('ℹ brotli 가 없어 글꼴을 woff 로 잘라 담아요(조금 더 큼) — pip install brotli 면 더 작아집니다')
             chars = ''.join(sorted(set(text + FIXED)))
+            import logging
+            logging.getLogger('fontTools').setLevel(logging.ERROR)
             for name in FONTS:
-                o = subset.Options(); o.flavor = 'woff2'; o.layout_features = ['*']
+                o = subset.Options(); o.flavor = fmt; o.layout_features = ['*']
                 f = subset.load_font(os.path.join(FONT_SRC, name + '.woff2'), o)
                 sb = subset.Subsetter(o); sb.populate(text=chars); sb.subset(f)
                 tmp = os.path.join(work, '.font.tmp')
                 subset.save_font(f, tmp, o); out[name] = read(tmp, 'rb'); os.remove(tmp)
-            return out
-        except Exception:
-            pass
-    return {n: read(os.path.join(FONT_SRC, n + '.woff2'), 'rb') for n in FONTS}
+            return out, fmt
+    return {n: read(os.path.join(FONT_SRC, n + '.woff2'), 'rb') for n in FONTS}, 'woff2'
 
 
 def inline_assets(text=None):
     style = read(os.path.join(ENG, 'style.css'))
-    for name, data in font_files(text).items():
-        style = style.replace(f"url('../fonts/{name}.woff2')", f"url('{b64(data, 'font/woff2')}')")
+    files, fmt = font_files(text)
+    for name, data in files.items():
+        style = style.replace(f"url('../fonts/{name}.woff2') format('woff2')", f"url('{b64(data, 'font/' + fmt)}') format('{fmt}')")
     kdir = os.path.join(ENG, 'katex')
     kcss = read(os.path.join(kdir, 'katex.min.css'))
     kcss = re.sub(r'url\((fonts/[^)]+\.woff2)\)', lambda m: 'url(' + b64(read(os.path.join(kdir, m[1]), 'rb'), 'font/woff2') + ')', kcss)
@@ -225,20 +276,51 @@ elif cmd == 'voice':
     sample, stext = val('--sample'), val('--sample-text')
     if not sample or not stext:
         sys.exit('--sample 샘플.wav --sample-text "샘플에서 한 말 그대로" 가 필요해요')
+    lp = os.path.join(work, 'lesson.json')
+    L = json.loads(read(lp))
+    os.makedirs(os.path.join(work, 'voice'), exist_ok=True)
+    only = val('--only')
+    local = '--remote' not in opt
+    if local:
+        try:
+            import torch, numpy as np, soundfile as sf
+            from qwen_tts import Qwen3TTSModel
+        except Exception:
+            local = False
+            print('ℹ 이 작업 공간에 목소리 복제가 설치돼 있지 않아 허깅페이스 데모로 해요 (설치: python3 peace.py voice-setup)')
+    if local:
+        # 샘플(휴대폰 m4a 도)을 24kHz 모노 wav 로
+        ref = os.path.join(work, 'voice', '_sample.wav')
+        subprocess.run([FF, '-y', '-v', 'error', '-i', os.path.abspath(sample), '-ac', '1', '-ar', '24000', ref], check=True)
+        rw, rsr = sf.read(ref, dtype='float32')
+        torch.set_num_threads(os.cpu_count() or 4)
+        print(f'목소리 모델 불러오는 중… ({VOICE_MODEL} · CPU)')
+        tts = Qwen3TTSModel.from_pretrained(VOICE_MODEL, device_map='cpu', dtype=torch.float32)
+        import time
+        for i, sc in enumerate(L['scenes']):
+            say = (sc.get('say') or '').strip()
+            if not say or (only and str(i + 1) not in only.split(',')):
+                continue
+            t0 = time.time()
+            wavs, sr = tts.generate_voice_clone(text=say, language='Korean', ref_audio=(rw, rsr), ref_text=stext, x_vector_only_mode=False, max_new_tokens=2048)
+            out = os.path.join('voice', f'{i + 1:02d}.wav')
+            sf.write(os.path.join(work, out), np.asarray(wavs[0], dtype='float32'), sr)
+            sc['voice'] = out; sc.pop('voiceData', None); sc.pop('voiceDur', None)
+            print(f'  장면 {i + 1:02d} → {out} ({audio_len(os.path.join(work, out)):.1f}초 · {time.time() - t0:.0f}초 걸림)')
+            with open(lp, 'w', encoding='utf-8') as f:
+                json.dump(L, f, ensure_ascii=False, indent=2)
+        print('→ lesson.json 에 목소리를 달았어요. 이제 studio · share · video 로 파일을 만드세요.')
+        sys.exit(0)
     try:
         from gradio_client import Client, handle_file
     except ImportError:
-        sys.exit('pip install gradio_client 를 먼저 해 주세요 (또는 스튜디오의 "🗣 내 목소리 AI" 로 직접)')
-    lp = os.path.join(work, 'lesson.json')
-    L = json.loads(read(lp))
+        sys.exit('pip install gradio_client 를 먼저 해 주세요 (또는 python3 peace.py voice-setup 으로 이 작업 공간에 설치)')
     space = val('--space') or 'Qwen/Qwen3-TTS'
     tok = os.environ.get('HF_TOKEN')
     try:
         c = Client(space, verbose=False, **({'token': tok} if tok else {}))
     except TypeError:
         c = Client(space, verbose=False, hf_token=tok) if tok else Client(space, verbose=False)
-    os.makedirs(os.path.join(work, 'voice'), exist_ok=True)
-    only = val('--only')
     for i, sc in enumerate(L['scenes']):
         say = (sc.get('say') or '').strip()
         if not say or (only and str(i + 1) not in only.split(',')):
@@ -277,9 +359,14 @@ elif cmd == 'build':
     eng = os.path.join(work, 'engine'); shutil.rmtree(eng, ignore_errors=True)
     shutil.copytree(ENG, eng, ignore=shutil.ignore_patterns('*.html', 'studio.*'))
     fd = os.path.join(work, 'fonts'); os.makedirs(fd, exist_ok=True)
-    for name, data in font_files(json.dumps(L, ensure_ascii=False)).items():
-        with open(os.path.join(fd, name + '.woff2'), 'wb') as f:
+    files, fmt = font_files(json.dumps(L, ensure_ascii=False))
+    for name, data in files.items():
+        with open(os.path.join(fd, name + '.woff2'), 'wb') as f:   # 이름은 그대로, 속은 woff2 또는 woff
             f.write(data)
+    if fmt != 'woff2':
+        sp = os.path.join(eng, 'style.css')
+        with open(sp, 'w', encoding='utf-8') as f:
+            f.write(read(sp).replace("format('woff2')", f"format('{fmt}')"))
     html = read(os.path.join(ENG, 'template.html')).replace('{{TITLE}}', L.get('title', '수업')).replace('{{LESSON}}', dumps(L))
     with open(os.path.join(work, 'lesson.html'), 'w', encoding='utf-8') as f:
         f.write(html)

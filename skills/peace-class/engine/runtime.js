@@ -199,6 +199,7 @@
   };
 
   // 2) 개념: 용어가 올라오고, 정의가 낱말씩, 핵심 낱말은 점이 형광펜으로 칠한다
+  const rest = b => ({ x: b.x + b.w - 0.4 * U, y: b.y - 1.6 * U });   // 글자 위 빈 자리
   T.concept = (sc, root) => {
     const col = el('div', 'abs qa', root); place(col, S.x, S.y, S.w * (R ? 1 : .86), S.h);
     css(col, { display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: px(2.4 * U) });
@@ -225,7 +226,7 @@
     let kb = [];
     return {
       dur, hits: [[0.25, 'rise'], [w0, 'words'], ...kt.map(t => [t, 'mark'])],
-      measure() { const tb = box(term.firstChild.firstChild); kb = keyEls.map(k => box(k)); this.dotIn = { x: tb.x + tb.w + 2.6 * U, y: tb.y + tb.h * .5 }; this.dotOut = kb.length ? { x: kb.at(-1).x + kb.at(-1).w + 1.6 * U, y: kb.at(-1).y + kb.at(-1).h * .62 } : this.dotIn; },
+      measure() { const tb = box(term.firstChild.firstChild); kb = keyEls.map(k => box(k)); this.dotIn = { x: tb.x + tb.w + 2.6 * U, y: tb.y + tb.h * .5 }; const lw = words.length ? box(words.at(-1)) : null; this.endPt = lw ? { x: lw.x + lw.w + 1.8 * U, y: lw.y + lw.h * .62 } : this.dotIn; this.dotOut = kb.length ? this.endPt : this.dotIn; },
       update(lt) {
         kick.style.opacity = eo(p(lt, 0.1, 0.5)); rise(tm.inner, p(lt, 0.25, 0.85));
         words.forEach((w, i) => { const k = eo(p(lt, w0 + i * ws, w0 + i * ws + 0.35)); w.style.opacity = k; w.style.transform = `translateY(${(1 - k) * .5}em)`; });
@@ -233,9 +234,13 @@
       },
       dotAt(lt) {
         let pt = this.dotIn;
+        // 점이 형광펜이 되어 핵심 말을 긋고, 다 그으면 그 말 위로 살짝 올라가 앉는다(뒤 글자를 가리지 않게)
         for (let j = 0; j < kt.length; j++) {
-          const b = kb[j], a = { x: b.x - 1.2 * U, y: b.y + b.h * .62 }, z = { x: b.x + b.w + 1.6 * U, y: a.y };
-          if (lt >= kt[j] - 0.3) pt = lt < kt[j] ? arc(j ? { x: kb[j - 1].x + kb[j - 1].w + 1.6 * U, y: kb[j - 1].y + kb[j - 1].h * .62 } : this.dotIn, a, eio(p(lt, kt[j] - 0.3, kt[j]))) : { x: lerp(a.x, z.x, eio(p(lt, kt[j], kt[j] + 0.5))), y: a.y };
+          const b = kb[j], a = { x: b.x - 1.2 * U, y: b.y + b.h * .62 }, z = { x: b.x + b.w, y: a.y };
+          if (lt < kt[j] - 0.3) break;
+          if (lt < kt[j]) pt = arc(j ? rest(kb[j - 1]) : this.dotIn, a, eio(p(lt, kt[j] - 0.3, kt[j])));
+          else if (lt < kt[j] + 0.5) pt = { x: lerp(a.x, z.x, eio(p(lt, kt[j], kt[j] + 0.5))), y: a.y };
+          else pt = arc(z, j === kt.length - 1 ? this.endPt : rest(b), eio(p(lt, kt[j] + 0.5, kt[j] + 0.9)), 2 * U);
         }
         return pt;
       },
@@ -795,7 +800,8 @@
     return { x: q.x, y: q.y, s: q.s != null ? q.s : 1 };
   };
   const endHit = (HITS.find(h => h.kind === 'end') || { t: DUR }).t;
-  const punch = (t, sty) => { if (!beatOf(sty) || t < BT * 4 || t > endHit) return 0; const n = Math.floor(t / BT), ph = (t - n * BT) / BT; return Math.exp(-ph * 9) * (n % 4 === 0 ? 1 : 0.5); };
+  let qaMode = false;   // 점검할 때는 박자 튐을 빼고 잰다
+  const punch = (t, sty) => { if (qaMode || !beatOf(sty) || t < BT * 4 || t > endHit) return 0; const n = Math.floor(t / BT), ph = (t - n * BT) / BT; return Math.exp(-ph * 9) * (n % 4 === 0 ? 1 : 0.5); };
   const seek = t => {
     t = clamp(t, 0, DUR - 1e-4);
     const act = scenes.find(s => t >= s.t0 && t < s.t0 + s.dur) || scenes.at(-1); applyTheme(act.STY);
@@ -859,13 +865,19 @@
   // 겹침 · 넘침 점검: 장면마다 다 나온 순간을 보고, 안전 영역을 넘거나 글 덩어리가 겹치면 알린다
   const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', hangul: '한글 조립', end: '마무리' };
   const QA = () => {
-    const out = [];
+    const out = []; qaMode = true;
     for (const s of scenes) {
       if (s.oops) out.push(`장면 ${s.i + 1}(${KN[s.sc.type] || s.sc.type}): 그릴 수 없음 — ${s.oops}`);
       seek(s.t0 + s.dur - 0.5);
       const blocks = [...s.root.querySelectorAll('.qa')].map(e => ({ e, b: box(e) })).filter(o => o.b.w > 0);
       const lim = R ? S : { x: 2 * U, y: 7.5 * U, w: W - 4 * U, h: H - 15 * U };
       // 글 덩어리 안의 실제 글자 상자로 넘침을 본다
+      // 점이 글자를 가리는지(다 나온 순간)
+      const db = box(dot), dr = { x: db.x + db.w * .2, y: db.y + db.h * .2, w: db.w * .6, h: db.h * .6 };
+      let hid = '';
+      s.root.querySelectorAll('.qa *').forEach(c => { if (hid || c.children.length || !c.textContent.trim() || dot.style.opacity === '0') return; const r = box(c); if (!r.w) return;
+        const ox = Math.min(r.x + r.w, dr.x + dr.w) - Math.max(r.x, dr.x), oy = Math.min(r.y + r.h, dr.y + dr.h) - Math.max(r.y, dr.y); if (ox > dr.w * .35 && oy > dr.h * .35) hid = c.textContent.trim().slice(0, 12); });
+      if (hid) out.push(`장면 ${s.i + 1}(${KN[s.sc.type] || s.sc.type}): 점이 글자 "${hid}" 을(를) 가림`);
       s.root.querySelectorAll('.qa *').forEach(c => {
         if (c.children.length || !c.textContent.trim()) return; const r = box(c); if (!r.w) return;
         if (r.x < lim.x - 2 || r.y < lim.y - 2 || r.x + r.w > lim.x + lim.w + 2 || r.y + r.h > lim.y + lim.h + 2) out.push(`장면 ${s.i + 1}(${KN[s.sc.type] || s.sc.type}): "${c.textContent.trim().slice(0, 20)}" 이(가) 화면 밖으로 넘침`);
@@ -875,6 +887,7 @@
         if (ox > 4 && oy > 4 && (blocks[i].e.textContent.trim() && blocks[j].e.textContent.trim())) out.push(`장면 ${s.i + 1}(${KN[s.sc.type] || s.sc.type}): 글 덩어리 두 개가 겹침 — "${blocks[i].e.textContent.trim().slice(0, 14)}" / "${blocks[j].e.textContent.trim().slice(0, 14)}"`);
       }
     }
+    qaMode = false;
     return [...new Set(out)];
   };
 
@@ -992,7 +1005,7 @@
     const out = await ctx.startRendering(), d = out.getChannelData(0);
     let sq = 0; for (let i = 0; i < d.length; i++) sq += d[i] * d[i];
     const k = Math.pow(10, -17 / 20) / (Math.sqrt(sq / d.length) || 1), th = Math.tanh(1.1);
-    for (let i = 0; i < d.length; i++) d[i] = Math.tanh(d[i] * k * 1.1) / th;
+    for (let i = 0; i < d.length; i++) d[i] = Math.tanh(d[i] * k * 1.1) * 0.97;   // 1 을 넘지 않게(큰북 찢어짐 방지)
     return out;
   }
   const wav = buf => {

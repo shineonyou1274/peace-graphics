@@ -20,7 +20,7 @@
 
 /* 화면 틀: 네 귀퉁이 라벨, 얇은 선, 진행 막대 */
 .frame { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
-.frame .lab { position: absolute; font-family: 'ANTON', 'KR', sans-serif; font-weight: 500; font-size: calc(var(--u) * 1.55); letter-spacing: .32em; color: var(--dim); text-transform: uppercase; white-space: nowrap; }
+.frame .lab { position: absolute; font-family: 'ANTON', 'KR', sans-serif; font-weight: 500; font-size: calc(var(--u) * 2.1); letter-spacing: .32em; color: var(--dim); text-transform: uppercase; white-space: nowrap; }
 .frame .lab b { color: var(--acc); font-weight: 500; }
 .frame .rule { position: absolute; height: 1px; background: var(--line); }
 .frame .prog { position: absolute; height: calc(var(--u) * .35); background: var(--acc); left: 0; }
@@ -44,6 +44,8 @@
 .hl { position: relative; z-index: 0; padding: 0 .08em; }
 .hl::before { content: ''; position: absolute; inset: -.08em -.06em; background: var(--acc); z-index: -1; transform-origin: 0 50%; transform: scaleX(var(--k, 0)); border-radius: .08em; }
 .hl.on, .hl.on * { color: #111 !important; }
+.katex .hl { display: inline-block; line-height: 1; padding: .04em .06em 0; }   /* 분수 · 첨자 안에서도 형광 상자가 글자를 그대로 감싸게 */
+.katex .hl::before { inset: -.06em -.04em -.04em; }
 
 /* 점: 영상 전체를 끌고 가는 형광 점 하나 */
 .dot { position: absolute; left: 0; top: 0; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); margin: calc(var(--u) * -1.3) 0 0 calc(var(--u) * -1.3); border-radius: 50%; background: var(--acc); z-index: 6; box-shadow: 0 0 calc(var(--u) * 2.4) color-mix(in srgb, var(--acc) 70%, transparent); will-change: transform; }

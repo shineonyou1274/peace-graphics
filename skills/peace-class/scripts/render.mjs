@@ -1,7 +1,7 @@
 // peace-class 렌더러 — 페이지가 내보내는 window.READY · window.seek(t) · window.DUR 로 프레임을 찍는다.
 // Shiny Peace Studio 의 videointro2 render_dom.mjs 를 바탕으로 수업 영상에 맞게 고쳤다.
 //
-//   node render.mjs --html lesson.html --info                 # build/info.json (길이 · 소리 자리 · 장면 · 화면 글자 · 점검)
+//   node render.mjs --html lesson.html --info                 # build/info.json (길이 · 소리 자리 · 장면 · 화면 글자 · 점검) + build/music.wav
 //   node render.mjs --html lesson.html --at 1.2,5,9           # 정지 화면 → build/at_T.png
 //   node render.mjs --html lesson.html --out build/s0.mp4 --from 0 --to 20 --fps 30 --sub 2   # 영상(소리 없이 구간)
 import { spawn, execSync } from 'node:child_process';
@@ -48,6 +48,9 @@ if (arg('info')) {
   const info = await page.evaluate(() => ({ DUR: window.DUR, HITS: window.HITS, SCENES: window.SCENES, TEXTS: window.TEXTS, QA: window.QA() }));
   info.size = size;
   writeFileSync('build/info.json', JSON.stringify(info, null, 1));
+  // 소리: 페이지가 웹 오디오로 만든 것을 그대로 받는다(영상과 같은 소리)
+  const wav = await page.evaluate(async () => window.PeaceClass.wavBase64(await window.AUDIO()));
+  writeFileSync('build/music.wav', Buffer.from(wav, 'base64'));
   console.log(`길이 ${info.DUR.toFixed(1)}초 · 장면 ${info.SCENES.length}개 · 소리 자리 ${info.HITS.length}개 · 점검 ${info.QA.length ? info.QA.length + '건' : '이상 없음'}`);
 } else if (arg('at')) {
   for (const t of String(arg('at')).split(',').map(Number)) writeFileSync(`build/at_${t.toFixed(2)}.png`, await shot(t));

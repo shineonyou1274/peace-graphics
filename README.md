@@ -4,7 +4,7 @@
 
 | 스킬 | 하는 일 |
 |---|---|
-| **[peace-class](skills/peace-class/)** ⭐ 새로 만듦 | **수업 원고 → 수업 모션 그래픽 영상(mp4)**. 형광 점 하나가 제목을 밝히고, 형광펜이 되고, 그래프를 그리고, 연표의 시간이 되고, 마침표가 됩니다. 수식은 교과서처럼(KaTeX), 함수 그래프는 식을 계산해 정확히, 소리는 코드로 새로 작곡 |
+| **[peace-class](skills/peace-class/)** ⭐ | **수업 원고 → 수업 모션 그래픽**. 선생님이 스타일 6가지를 눈으로 고르고 시나리오를 화면에서 고치는 **수업 영상 스튜디오(파일 하나)**. 형광 점 하나가 제목을 밝히고, 형광펜이 되고, 그래프를 그리고, 연표의 시간이 되고, 마침표가 됩니다. 수식은 교과서처럼(KaTeX), 함수 그래프는 식을 계산해 정확히, 소리는 브라우저 안에서 새로 작곡 |
 | **[motion-studio-academy](skills/motion-studio-academy/)** | motion-studio 사용법을 배우는 학습 튜터 (레슨 · 퀴즈 · 과목별 실습) |
 
 ### 견본 (peace-class 로 만든 영상)
@@ -16,25 +16,32 @@
 ### peace-class 장면 틀 10가지
 제목 · 개념(형광펜) · 수식 전개(바뀐 곳 형광) · 함수 그래프(기울기 삼각형 · 점 찍기) · 막대그래프 · 연표 · 둘 비교 · **흔한 실수 → ✕ → 되감기 → 바로잡기** · 과정 · 마무리(손글씨)
 
-### peace-class 쓰는 법
-Claude 에 스킬을 올리고 이렇게 말합니다.
-```
-수업 영상 만들어줘. 중2 일차함수 기울기, 수업 도입 40초.
-원문 사실: y = 2x + 1 에서 x가 1 늘면 y는 2 는다 …
-```
-Claude 가 장면 표를 보여 주고(⏸ 확인) → 스타일 시안(형광 · 종이 · 칠판)과 **화면 글자 목록**을 보여 주고(⏸ 교과서와 대조) → **수업용 HTML 파일 하나**를 드립니다.
+### ⭐ 선생님은 이 파일 하나면 됩니다 — [수업 영상 스튜디오 받기](download/수업영상스튜디오.html) (링크를 열고 오른쪽 위 ⬇ 버튼)
+내려받아 크롬 · 엣지 · 웨일로 열면 (인터넷 · 설치 · 로그인 없음):
 
-**결과물 = 파일 하나 (`<제목>_수업용.html`, 1~2MB)** — 글꼴 · 수식 · 소리가 모두 안에 들어 있어 인터넷 · 설치 없이 아무 브라우저에서 열면 재생됩니다. 다른 선생님께 그대로 보내면 됩니다.
-수업 중: 클릭 · 스페이스 = 재생/멈춤 · → ← = 장면 넘기기 · F = 전체 화면 · R = 처음부터. mp4 가 필요하면 굽는 도구가 있는 환경에서 따로 만듭니다.
-직접 돌릴 때는:
-```bash
-python3 skills/peace-class/scripts/peace.py new   내수업 --from math-slope   # 예시로 시작 → 내수업/lesson.json 고치기
-python3 skills/peace-class/scripts/peace.py build 내수업                     # 내수업/lesson.html 을 브라우저로 열면 바로 미리보기
-python3 skills/peace-class/scripts/peace.py check 내수업                     # 점검 · 소리 · 정지 화면
-python3 skills/peace-class/scripts/peace.py share 내수업                     # 수업용 HTML 파일 하나 (공유용)
-python3 skills/peace-class/scripts/peace.py video 내수업                     # (선택) mp4
+1. **스타일 고르기** — 지금 장면이 6가지 스타일(형광 · 종이 · 칠판 · 공책 · 모눈 · 청사진)로 나란히 보입니다. 눌러서 고르세요.
+2. **시나리오 고치기** — 화면에 나올 글이 장면마다 칸으로 있습니다. 고치면 바로 미리보기에 나옵니다. 장면 더하기 · 지우기 · 순서 바꾸기.
+3. **목소리** — 장면마다 🎙 버튼으로 바로 녹음하거나 파일을 넣습니다.
+4. **미리보기** — 소리와 함께 재생, 글이 넘치거나 겹치면 알려 줍니다.
+5. **수업용 파일 저장** — 파일 하나(`<제목>_수업용.html`)로 저장. 수업 때 열고, 다른 선생님께 그대로 보내면 됩니다.
+
+수업용 파일 조작: 클릭 · 스페이스 = 재생/멈춤 · → ← = 장면 넘기기 · F = 전체 화면 · R = 처음부터
+
+### Claude 와 함께 만들기 (peace-class 스킬)
+Claude 에 `peace-class.skill` 을 올리고 수업 원고를 주세요.
 ```
-필요한 것: Python 3 (`pip install numpy scipy pillow fonttools brotli`) · 글꼴은 스킬에 들어 있어 인터넷이 필요 없습니다. 정지 화면 점검과 mp4 는 Node.js + Playwright(chromium) + ffmpeg 가 있을 때만.
+수업 영상 만들어줘. 중1 과학 광합성, 수업 도입 40초, 16:9.
+원문 사실: 광합성은 식물이 빛에너지를 이용하여 물과 이산화 탄소로 양분을 만드는 과정 …
+```
+Claude 가 장면 표를 보여 주고(⏸ 확인) → 그 시나리오가 담긴 **스튜디오 파일**을 드립니다 → 선생님이 스타일을 고르고 글을 다듬어 **수업용 파일**로 저장합니다. 시나리오(.json)를 다시 Claude 에게 보내면 이어서 손봅니다.
+
+직접 돌릴 때(Python 3 만 있으면 됨):
+```bash
+python3 skills/peace-class/scripts/peace.py new    내수업 --from science-photosynthesis
+python3 skills/peace-class/scripts/peace.py studio 내수업        # 스튜디오 파일
+python3 skills/peace-class/scripts/peace.py share  내수업        # 수업용 파일 바로
+python3 skills/peace-class/scripts/peace.py build  내수업 && python3 skills/peace-class/scripts/peace.py check 내수업 && python3 skills/peace-class/scripts/peace.py video 내수업   # (선택) mp4 — Node + Playwright + ffmpeg 필요
+```
 
 ---
 

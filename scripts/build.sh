@@ -26,3 +26,6 @@ done
 # 저장소의 받기용 사본도 새로 고친다 (README 의 다운로드 링크)
 mkdir -p download && cp dist/*.skill download/
 echo "↪ download/ 갱신"
+
+# 선생님용 빈 스튜디오 (예시가 담긴 파일 하나)
+python3 skills/peace-class/scripts/peace.py blank download/수업영상스튜디오.html

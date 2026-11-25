@@ -1,17 +1,30 @@
 /* peace-class runtime — lesson.json 한 장을 시간으로 움직이는 수업 모션 그래픽으로 만든다.
- * 페이지가 내보내는 것: window.READY (promise) · window.seek(t) · window.DUR · window.HITS · window.QA() · window.TEXTS
+ * PeaceClass.mount(무대 div, lesson) → { READY, seek(t), DUR, HITS, QA(), TEXTS, SCENES, audio() }
  * 원칙: 같은 t 에는 언제나 같은 화면(렌더러가 프레임마다 seek 한다). 화면의 글자 · 값은 lesson.json 에서만 온다.
+ * 소리도 이 파일이 브라우저 안에서 만든다(Shiny Peace Studio 의 videointro 음악 엔진 설계를 웹 오디오로 옮김).
  */
 (() => {
-  const L = window.LESSON;
+  // 스타일: 선생님이 눈으로 보고 고른다. light = 밝은 바탕(형광 칠한 글자를 흰색으로)
+  const SUBJ = { '수학': '#d7ff00', '과학': '#3ee0ff', '국어': '#ff6b9a', '영어': '#ffb21e', '사회': '#9b7bff' };
+  const SUBJ_DEEP = { '수학': '#3a7d00', '과학': '#0077b6', '국어': '#d6336c', '영어': '#d97706', '사회': '#6741d9' };
+  const STYLES = [
+    { id: 'dark', name: '형광', desc: '어두운 바탕 · 과목색 형광', acc: s => SUBJ[s] || '#d7ff00' },
+    { id: 'light', name: '종이', desc: '밝은 바탕 · 밝은 교실 프로젝터', light: true, acc: s => SUBJ_DEEP[s] || '#3a7d00' },
+    { id: 'board', name: '칠판', desc: '초록 칠판 · 분필 노랑 · 손글씨 제목', acc: () => '#ffe066' },
+    { id: 'note', name: '공책', desc: '줄 공책 · 파란 펜 · 손글씨 제목', light: true, acc: () => '#2f5bd3' },
+    { id: 'grid', name: '모눈', desc: '모눈종이 · 수학 · 과학 그래프에', light: true, acc: s => SUBJ_DEEP[s] || '#0077b6' },
+    { id: 'night', name: '청사진', desc: '남색 설계도 · 노랑 강조', acc: () => '#ffd166' },
+  ];
+  const styleOf = L => STYLES.find(s => s.id === (L.style || L.theme)) || STYLES[0];
+
+  function mount(stage, L, opt = {}) {
   const R = L.ratio === '9:16';
   const W = R ? 1080 : 1920, H = R ? 1920 : 1080, U = Math.min(W, H) / 100;
   // 안전 영역: 9:16 은 쇼츠 화면의 버튼 · 자막 자리를 비운다(위 300 · 아래 480 · 오른쪽 200 · 왼쪽 60)
   const S = R ? { x: 60, y: 300, w: 820, h: 1140 } : { x: 0.075 * W, y: 0.14 * H, w: 0.85 * W, h: 0.72 * H };
-  const SUBJ = { '수학': '#d7ff00', '과학': '#3ee0ff', '국어': '#ff6b9a', '영어': '#ffb21e', '사회': '#9b7bff' };
-  let ACC = L.accent || SUBJ[L.subject] || '#d7ff00';
+  const STY = styleOf(L);
+  const ACC = L.accent || STY.acc(L.subject);
   const BAD = '#ff4d5e';
-
   // ---------- 작은 도구 ----------
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const p = (t, a, b) => clamp((t - a) / (b - a));
@@ -26,8 +39,7 @@
   const px = v => v + 'px';
   const place = (e, x, y, w, h) => css(e, { left: px(x), top: px(y), ...(w != null ? { width: px(w) } : {}), ...(h != null ? { height: px(h) } : {}) });
   const fmt = (v, like) => { const d = (String(like).split('.')[1] || '').length; return Number(v).toLocaleString('ko-KR', { minimumFractionDigits: d, maximumFractionDigits: d }); };
-  let stageRect;
-  const box = e => { const r = e.getBoundingClientRect(); return { x: r.left - stageRect.left, y: r.top - stageRect.top, w: r.width, h: r.height }; };
+  const box = e => { const sr = stage.getBoundingClientRect(), r = e.getBoundingClientRect(), k = sr.width / W || 1; return { x: (r.left - sr.left) / k, y: (r.top - sr.top) / k, w: r.width / k, h: r.height / k }; };
   const arc = (a, b, k, lift) => { const x = lerp(a.x, b.x, k), y = lerp(a.y, b.y, k); const d = Math.hypot(b.x - a.x, b.y - a.y); return { x, y: y - Math.sin(Math.PI * k) * (lift != null ? lift : Math.min(d * .32, 16 * U)) }; };
   // 수식: $...$ 은 KaTeX, [[...]] 은 형광 칠할 곳
   const KOPT = { throwOnError: false, strict: false, trust: true, macros: { '\\hl': '\\htmlClass{hl}{#1}' } };
@@ -45,12 +57,9 @@
   const wipe = (e, k) => { e.style.clipPath = `inset(-20% ${((1 - k) * 100).toFixed(2)}% -20% -2%)`; };
 
   // ---------- 무대 ----------
-  const stage = document.getElementById('stage');
+  stage.innerHTML = ''; stage.className = `pc-stage theme-${STY.id}${STY.light ? ' pc-light' : ''}`;
   css(stage, { width: px(W), height: px(H) });
   stage.style.setProperty('--acc', ACC); stage.style.setProperty('--bad', BAD); stage.style.setProperty('--u', px(U));
-  if (L.theme === 'light' || L.theme === 'board') stage.classList.add('theme-' + L.theme);
-  if (L.theme === 'light' && !L.accent) { ACC = { '수학': '#3a7d00', '과학': '#0077b6', '국어': '#d6336c', '영어': '#d97706', '사회': '#6741d9' }[L.subject] || '#3a7d00'; stage.style.setProperty('--acc', ACC); }
-  if (L.theme === 'board' && !L.accent) { ACC = '#ffe066'; stage.style.setProperty('--acc', ACC); }
   const HITS = [], TEXTS = [];
   const scenes = [];
 
@@ -458,12 +467,23 @@
     };
   };
 
+  // 그릴 수 없는 장면: 무엇이 빠졌는지 화면에 알린다
+  T.oops = (sc, root, err) => {
+    const c = el('div', 'abs qa', root); place(c, S.x, S.y, S.w, S.h);
+    css(c, { display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: px(2 * U), textAlign: 'center' });
+    el('div', 'kicker', c, '이 장면을 그릴 수 없어요').style.color = BAD;
+    const m = el('div', null, c, '빈 칸을 채워 주세요 · ' + (err && err.message || '')); css(m, { fontSize: px(2.6 * U), color: 'var(--dim)' });
+    return { dur: 2.5, hits: [], measure() { this.dotIn = this.dotOut = { x: S.x + S.w / 2, y: S.y + S.h * .7 }; }, update() {}, dotAt() { return this.dotIn; } };
+  };
+
   // ================= 짓기 =================
   L.scenes.forEach((sc, i) => {
     const root = el('div', 'scene', stage);
-    if (!T[sc.type]) throw new Error(`모르는 장면 틀: ${sc.type}`);
-    const s = T[sc.type](sc, root); s.root = root; s.sc = sc; s.i = i; scenes.push(s);
-    if (sc.minDur) s.dur = Math.max(s.dur, sc.minDur);   // 나레이션이 있으면 말 길이만큼은 머문다
+    let s;
+    try { if (!T[sc.type]) throw new Error(`모르는 장면 틀: ${sc.type}`); s = T[sc.type](sc, root); }
+    catch (e) { root.innerHTML = ''; s = T.oops(sc, root, e); }   // 고치는 중에 빈 칸이 있어도 멈추지 않는다
+    s.root = root; s.sc = sc; s.i = i; scenes.push(s);
+    const md = Math.max(sc.minDur || 0, sc.voiceDur ? sc.voiceDur + 1.2 : 0); if (md) s.dur = Math.max(s.dur, md);   // 녹음이 있으면 말 길이만큼은 머문다
   });
   let acc = 0; scenes.forEach(s => { s.t0 = acc; acc += s.dur; s.hits.forEach(([t, k]) => HITS.push({ t: +(s.t0 + t).toFixed(3), kind: k, scene: s.i + 1 })); });
   const DUR = acc;
@@ -474,7 +494,7 @@
   const dotPos = t => {
     for (let i = 0; i < scenes.length - 1; i++) { const T0 = scenes[i + 1].t0; if (t >= T0 - TA && t < T0 + TB) { const a = scenes[i].dotOut, b = scenes[i + 1].dotIn; return { ...arc(a, b, eio(p(t, T0 - TA, T0 + TB))), s: 1 }; } }
     const s = scenes.find(s => t >= s.t0 && t < s.t0 + s.dur) || scenes.at(-1);
-    const lt = t - s.t0, q = s.dotAt(clamp(lt, 0, s.dur));
+    const lt = t - s.t0; let q; try { q = s.dotAt(clamp(lt, 0, s.dur)) || s.dotIn; } catch (e) { q = s.dotIn || { x: 0, y: 0 }; }
     return { x: q.x, y: q.y, s: q.s != null ? q.s : 1 };
   };
   const seek = t => {
@@ -483,7 +503,7 @@
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
       s.root.style.display = on ? 'block' : 'none';
       if (!on) continue;
-      s.update(lt);
+      try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
       const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
       s.root.style.opacity = kin * (1 - kout); s.root.style.transform = `translateY(${-kout * 2.4 * U}px)`; s.root.style.filter = kout > 0.01 ? `blur(${kout * 8}px)` : '';
@@ -527,47 +547,169 @@
   };
 
   const fontLoads = ['500 40px KR', '900 40px KR', '40px PEN', '40px ANTON', '40px KaTeX_Main', 'italic 40px KaTeX_Math', '40px KaTeX_Size1', '40px KaTeX_Size2', 'bold 40px KaTeX_Main', '40px KaTeX_AMS'];
-  window.READY = (async () => {
+  const READY = (async () => {
     const sample = TEXTS.join(' ') + '0123456789';
     await Promise.all(fontLoads.map(f => document.fonts.load(f, sample).catch(() => null)));
     await document.fonts.ready;
-    stageRect = stage.getBoundingClientRect();
-    for (const s of scenes) { s.root.style.display = 'block'; s.measure(); s.root.style.display = 'none'; }
+    for (const s of scenes) {
+      s.root.style.display = 'block';
+      try { s.measure(); } catch (e) { s.dotIn = s.dotOut = { x: S.x + S.w / 2, y: S.y + S.h / 2 }; s.update = () => {}; s.dotAt = () => s.dotIn; console.warn('장면', s.i + 1, e); }
+      s.root.style.display = 'none';
+    }
     placeRight(labTR, top); placeRight(labBR, bot);
     seek(0);
   })();
-  Object.assign(window, { seek, DUR, HITS, QA, TEXTS, SCENES: scenes.map(s => ({ n: s.i + 1, type: s.sc.type, t0: +s.t0.toFixed(3), dur: +s.dur.toFixed(3) })) });
+  const SCENES = scenes.map(s => ({ n: s.i + 1, type: s.sc.type, t0: +s.t0.toFixed(3), dur: +s.dur.toFixed(3) }));
+  let audioP = null;
+  const audio = () => audioP || (audioP = renderSound(L, HITS, SCENES, DUR));
+  return { READY, seek, DUR, HITS, QA, TEXTS, SCENES, W, H, audio, poster: Math.max(0, scenes[0].dur - 0.6) };
+  }
 
-  // ---------- 브라우저로 열었을 때: 수업용 재생기 ----------
-  // 스페이스 · 클릭 = 재생/멈춤 · → / ← = 다음/앞 장면 · F = 전체 화면 · R = 처음부터
-  if (!window.__RENDER_MODE__) window.READY.then(() => {
-    css(document.body, { width: '100vw', height: '100vh', display: 'grid', placeItems: 'center', cursor: 'pointer', fontFamily: "'KR', sans-serif" });
-    const fit = () => { const k = Math.min(innerWidth / W, innerHeight / H); stage.style.transform = `scale(${k})`; css(stage, { marginRight: px(W * k - W), marginBottom: px(H * k - H) }); };
+  // ================= 소리 =================
+  // 배경음 · 효과음 · 녹음을 한 번에 만든다(OfflineAudioContext). 같은 lesson 이면 언제나 같은 소리(씨앗 고정).
+  const SR = 32000;
+  const rngOf = seed => { let s = (seed * 2654435761) >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; };
+  const PROG = { bright: [[0, 'M'], [7, 'M'], [-3, 'm'], [5, 'M']], dark: [[0, 'm'], [-4, 'M'], [3, 'M'], [-2, 'M']] };
+  const chord = (b, key) => { const [o, q] = PROG[key][b % 4]; const r = 50 + o; return [r, r + (q === 'm' ? 3 : 4), r + 7]; };
+  async function renderSound(L, HITS, SCENES, DUR) {
+    const N = Math.ceil((DUR + 1.2) * SR), ctx = new OfflineAudioContext(1, N, SR), rnd = rngOf(L.seed || 7);
+    const nb = ctx.createBuffer(1, SR * 2, SR), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = rnd() * 2 - 1;
+    const hz = m => 440 * 2 ** ((m - 69) / 12);
+    const master = ctx.createGain(); master.connect(ctx.destination);
+    const bus = n => { const g = ctx.createGain(); g.connect(master); return g; };
+    const bed = bus(), fx = bus(), vo = bus();
+    const rev = ctx.createConvolver(), irb = ctx.createBuffer(1, SR * 1.5, SR), ir = irb.getChannelData(0);
+    for (let i = 0; i < ir.length; i++) ir[i] = (rnd() * 2 - 1) * Math.exp(-i / SR / 0.4) * 0.3;
+    rev.buffer = irb; const wet = ctx.createGain(); wet.gain.value = 0.2; rev.connect(wet); wet.connect(master); bed.connect(rev); fx.connect(rev);
+    const env = (g, t, a, d, pk) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
+    const vca = (dest, t, a, d, pk) => { const g = ctx.createGain(); env(g, t, a, d, pk); g.connect(dest); return g; };
+    const filt = (dest, f, type = 'lowpass', q = 0.7) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.connect(dest); return b; };
+    const osc = (type, f, t, d, dest, det = 0) => { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det; o.connect(dest); o.start(t); o.stop(t + d + 0.05); return o; };
+    const noise = (t, d, dest) => { const s = ctx.createBufferSource(); s.buffer = nb; s.loop = true; s.connect(dest); s.start(t, rnd() * 1.5); s.stop(t + d + 0.05); };
+    const I = {
+      pluck: (t, m, d = 0.3, g = 0.12) => { const f = filt(vca(fx, t, 0.003, d, g), 3200); osc('sawtooth', hz(m), t, d, f, -7); osc('sawtooth', hz(m), t, d, f, 7); },
+      bell: (t, m, d = 1.2, g = 0.12) => { osc('sine', hz(m), t, d, vca(fx, t, 0.002, d, g)); osc('sine', hz(m) * 4, t, d, vca(fx, t, 0.002, d * 0.35, g * 0.3)); osc('sine', hz(m) * 9.2, t, d, vca(fx, t, 0.002, d * 0.15, g * 0.12)); },
+      keys: (t, ms, d, g) => ms.forEach(m => { osc('sine', hz(m), t, d, vca(bed, t, 0.006, d, g / ms.length)); osc('sine', hz(m) * 4, t, 0.25, vca(bed, t, 0.002, 0.12, g * 0.2 / ms.length)); }),
+      pad: (t, ms, d, g, dest = bed) => { const v = ctx.createGain(); v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.3); v.gain.setValueAtTime(g, t + d * 0.6); v.gain.exponentialRampToValueAtTime(0.0001, t + d); v.connect(dest); const f = filt(v, 1500); ms.forEach(m => { osc('sawtooth', hz(m), t, d, f, -6); osc('sawtooth', hz(m), t, d, f, 6); }); },
+      strings: (t, ms, d, g) => { const v = ctx.createGain(); v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.45); v.gain.setValueAtTime(g, t + d * 0.75); v.gain.exponentialRampToValueAtTime(0.0001, t + d); v.connect(bed); const f = filt(v, 2200); ms.forEach(m => [-9, -3, 3, 9].forEach(dd => osc('sawtooth', hz(m), t, d, f, dd))); },
+      sub: (t, m, d, g) => osc('sine', hz(m), t, d, vca(bed, t, 0.01, d * 0.8, g)),
+      kick: (t, g) => { const o = ctx.createOscillator(); o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.08); o.connect(vca(bed, t, 0.001, 0.22, g)); o.start(t); o.stop(t + 0.4); },
+      rim: (t, g, dest = bed) => { noise(t, 0.06, filt(vca(dest, t, 0.0005, 0.035, g), 2200, 'bandpass', 3)); osc('sine', 1700, t, 0.05, vca(dest, t, 0.0005, 0.025, g * 0.5)); },
+      hat: (t, g) => noise(t, 0.06, filt(vca(bed, t, 0.0005, 0.035, g), 7500, 'highpass')),
+      clap: (t, g) => [0, 0.012, 0.024].forEach(o => noise(t + o, 0.12, filt(vca(bed, t + o, 0.0005, 0.07, g), 1400, 'bandpass', 1.5))),
+      heart: (t, g) => [0, 0.17].forEach((o, i) => { const os = ctx.createOscillator(); os.frequency.setValueAtTime(80, t + o); os.frequency.exponentialRampToValueAtTime(45, t + o + 0.06); os.connect(vca(bed, t + o, 0.003, 0.12, g * (i ? 0.7 : 1))); os.start(t + o); os.stop(t + o + 0.3); }),
+      swish: (t, d, lo, hi, g) => { const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.Q.value = 1.2; b.frequency.setValueAtTime(lo, t); b.frequency.exponentialRampToValueAtTime(hi, t + d); b.connect(vca(fx, t, d * 0.3, d * 0.7, g)); noise(t, d, b); },
+      riser: (t, d, g) => { const v = ctx.createGain(); v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + d); v.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.1); v.connect(fx); const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.Q.value = 2; b.frequency.setValueAtTime(300, t); b.frequency.exponentialRampToValueAtTime(5000, t + d); b.connect(v); noise(t, d + 0.1, b); const o = ctx.createOscillator(); o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(660, t + d); const og = ctx.createGain(); og.gain.value = 0.2; o.connect(og); og.connect(v); o.start(t); o.stop(t + d + 0.12); },
+      buzz: (t, m, g) => { const f = filt(vca(fx, t, 0.004, 0.13, g), 900); osc('sawtooth', hz(m), t, 0.2, f); osc('sawtooth', hz(m), t, 0.2, f, 15); },
+      rewind: (t, d, ms, g) => { const v = ctx.createGain(); v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + d); v.gain.linearRampToValueAtTime(0, t + d + 0.02); v.connect(fx); ms.forEach(m => osc('sine', hz(m), t, d, v)); noise(t, d, filt(v, 2500, 'highpass')); },
+      scratch: (t, d, g) => { const v = ctx.createGain(); v.gain.setValueAtTime(0, t); v.gain.linearRampToValueAtTime(g, t + 0.05); v.gain.setValueAtTime(g, t + d - 0.1); v.gain.linearRampToValueAtTime(0, t + d); v.connect(fx); const tr = ctx.createGain(); tr.gain.value = 0.5; tr.connect(v); const lfo = ctx.createOscillator(); lfo.frequency.value = 13; const lg = ctx.createGain(); lg.gain.value = 0.5; lfo.connect(lg); lg.connect(tr.gain); lfo.start(t); lfo.stop(t + d); noise(t, d, filt(tr, 2800, 'highpass')); },
+    };
+    const MOOD = L.mood || 'calm';
+    const P = { calm: { bpm: 84, key: 'bright' }, bright: { bpm: 100, key: 'bright' }, serious: { bpm: 70, key: 'dark' } }[MOOD] || { bpm: 84, key: 'bright' };
+    const beat = 60 / P.bpm, bar = beat * 4;
+    const endT = (HITS.find(h => h.kind === 'end') || { t: DUR - 1 }).t;
+    // 배경음
+    for (let b = 0; b * bar < Math.min(DUR, endT + bar); b++) {
+      const t0 = b * bar, ch = chord(b, P.key);
+      if (MOOD === 'serious') { I.strings(t0, ch.map(m => m + 12), bar * 1.05, 0.05); I.sub(t0, ch[0] - 12, bar * 0.9, 0.18); if (b && t0 < endT) { I.heart(t0, 0.35); I.heart(t0 + beat * 2, 0.25); } continue; }
+      I.keys(t0, ch.map(m => m + 12), bar * 0.98, 0.16); I.sub(t0, ch[0] - 12, bar * 0.9, 0.14);
+      if (MOOD === 'bright') for (let k = 0; k < 8; k++) I.pluck(t0 + k * beat / 2, ch[k % 3] + 24, 0.2, 0.05);
+      if (b === 0 || t0 >= endT) continue;
+      for (let k = 0; k < 4; k++) {
+        const tb = t0 + k * beat;
+        if (k % 2 === 0) I.kick(tb, MOOD === 'calm' ? 0.4 : 0.5); else (MOOD === 'calm' ? I.rim(tb, 0.16) : I.clap(tb, 0.13));
+        I.hat(tb, 0.05); I.hat(tb + beat / 2 + beat * 0.06, 0.035);
+      }
+    }
+    I.pad(endT, chord(0, P.key).map(m => m + 12), 3.2, 0.06);
+    // 효과음 — 화면의 사건마다
+    const SC = P.key === 'bright' ? [62, 64, 66, 69, 71, 74, 76, 78, 81, 83, 86] : [62, 65, 67, 69, 72, 74, 77, 79, 81];
+    let hop = 0;
+    for (const { t, kind } of HITS) {
+      if (kind === 'pop') { I.pluck(t, SC[5], 0.25, 0.14); I.bell(t, SC[7], 0.6, 0.1); }
+      else if (kind === 'sweep') I.riser(t, 0.9, 0.08);
+      else if (kind === 'rise') I.pluck(t, SC[3], 0.2, 0.09);
+      else if (kind === 'words') I.rim(t, 0.08, fx);
+      else if (kind === 'mark') { I.swish(t, 0.45, 2200, 7000, 0.12); I.bell(t + 0.4, SC[6], 0.5, 0.07); }
+      else if (kind === 'draw') { I.riser(t, 1.3, 0.06); I.bell(t, SC[4], 0.8, 0.06); }
+      else if (kind === 'hop') { I.pluck(t, SC[Math.min(SC.length - 1, 3 + hop % 6)], 0.2, 0.12); hop++; }
+      else if (kind === 'grow') { I.pluck(t, SC[Math.min(SC.length - 1, 2 + hop % 7)], 0.25, 0.11); hop++; }
+      else if (kind === 'tick') { I.rim(t, 0.14, fx); I.bell(t, SC[5 + hop % 3], 0.7, 0.09); hop++; }
+      else if (kind === 'strike') I.swish(t, 0.4, 1500, 5000, 0.14);
+      else if (kind === 'wrong') { I.buzz(t, 45, 0.12); I.buzz(t + 0.17, 44, 0.12); }
+      else if (kind === 'rewind') I.rewind(t - 0.1, 0.6, [SC[0], SC[4]], 0.12);
+      else if (kind === 'right') [SC[5], SC[6], SC[8]].forEach((m, j) => I.bell(t + j * 0.05, m, 1.4, 0.11));
+      else if (kind === 'write') I.scratch(t, 1.1, 0.05);
+      else if (kind === 'end') { I.bell(t, SC[5], 2.4, 0.13); I.bell(t + 0.08, SC[8], 2.4, 0.08); }
+    }
+    // 녹음(선생님 목소리) — 장면 시작 0.35초 뒤 · 말하는 동안 배경음을 낮춘다
+    for (let i = 0; i < L.scenes.length; i++) {
+      const sc = L.scenes[i]; if (!sc.voiceData) continue;
+      try {
+        const ab = await (await fetch(sc.voiceData)).arrayBuffer(); const buf = await ctx.decodeAudioData(ab);
+        const t = SCENES[i].t0 + 0.35, s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = 1.0; s.connect(g); g.connect(vo); s.start(t);
+        bed.gain.setTargetAtTime(0.35, t - 0.1, 0.08); bed.gain.setTargetAtTime(1, t + buf.duration, 0.25);
+      } catch (e) { console.warn('녹음을 읽지 못함', i + 1, e); }
+    }
+    master.gain.setValueAtTime(1, Math.max(0, DUR - 0.6)); master.gain.linearRampToValueAtTime(0, DUR + 0.2);
+    const out = await ctx.startRendering(), d = out.getChannelData(0);
+    let sq = 0; for (let i = 0; i < d.length; i++) sq += d[i] * d[i];
+    const k = Math.pow(10, -17 / 20) / (Math.sqrt(sq / d.length) || 1), th = Math.tanh(1.1);
+    for (let i = 0; i < d.length; i++) d[i] = Math.tanh(d[i] * k * 1.1) / th;
+    return out;
+  }
+  const wav = buf => {
+    const d = buf.getChannelData(0), n = d.length, ab = new ArrayBuffer(44 + n * 2), v = new DataView(ab);
+    const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, buf.sampleRate, true); v.setUint32(28, buf.sampleRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32000, true);
+    return new Uint8Array(ab);
+  };
+  const wavBase64 = buf => { const u = wav(buf); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+
+  // ================= 수업용 재생기 =================
+  // 스페이스 · 클릭 = 재생/멈춤 · → / ← = 다음/앞 장면 · F = 전체 화면 · R = 처음부터 · 멈춰 있으면 제목 화면이 표지
+  function player(inst, stage) {
+    const { W, H, DUR, SCENES, seek } = inst;
+    const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+    Object.assign(document.body.style, { margin: 0, background: '#000', width: '100vw', height: '100vh', display: 'grid', placeItems: 'center', cursor: 'pointer', overflow: 'hidden' });
+    const fit = () => { const k = Math.min(innerWidth / W, innerHeight / H); stage.style.transform = `scale(${k})`; stage.style.transformOrigin = '0 0'; stage.style.marginRight = (W * k - W) + 'px'; stage.style.marginBottom = (H * k - H) + 'px'; };
     fit(); addEventListener('resize', fit);
-    const au = new Audio(window.AUDIO_SRC || 'build/music.wav'); au.preload = 'auto';
-    let playing = false, started = false, t = 0, last = performance.now(), idle = 0;
-    const poster = Math.max(0, scenes[0].dur - 0.6);   // 처음 열면 제목이 다 나온 화면을 표지로
-    const hint = el('div', null, document.body);
-    css(hint, { position: 'fixed', left: '50%', bottom: '4vh', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: '999px', background: 'rgba(0,0,0,.72)', color: '#fff', font: "500 15px 'KR', sans-serif", letterSpacing: '.02em', transition: 'opacity .4s', zIndex: 9 });
+    let ac = null, buf = null, src = null, playing = false, started = false, t = 0, last = performance.now(), idle = 0;
+    inst.audio().then(b => { buf = b; }).catch(e => console.warn('소리를 만들지 못함', e));
+    const hint = document.createElement('div'); document.body.appendChild(hint);
+    Object.assign(hint.style, { position: 'fixed', left: '50%', bottom: '4vh', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: '999px', background: 'rgba(0,0,0,.72)', color: '#fff', font: "500 15px 'KR', sans-serif", transition: 'opacity .4s', zIndex: 9, whiteSpace: 'nowrap' });
     hint.textContent = '▶ 클릭 · 스페이스 = 재생   → ← 장면 넘기기   F 전체 화면';
-    const start0 = scenes.map(s => s.t0);
-    const go = nt => { started = true; t = clamp(nt, 0, DUR - 0.01); try { au.currentTime = t; } catch (e) {} idle = 0; };
+    const starts = SCENES.map(s => s.t0);
+    const stopA = () => { if (src) { try { src.stop(); } catch (e) {} src = null; } };
+    const startA = () => { stopA(); if (!buf) return; ac = ac || new (window.AudioContext || window.webkitAudioContext)(); src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start(0, t); };
+    const go = nt => { started = true; t = clamp(nt, 0, DUR - 0.01); idle = 0; if (playing) startA(); };
     const loop = now => {
       const dt = (now - last) / 1000; last = now;
-      if (playing) { t += dt; if (t >= DUR - 0.01) { t = DUR - 0.01; playing = false; au.pause(); } else if (Math.abs(au.currentTime - t) > 0.25 && !au.paused) au.currentTime = t; }
+      if (playing) { t += dt; if (t >= DUR - 0.01) { t = DUR - 0.01; playing = false; stopA(); } }
       idle += dt; hint.style.opacity = playing && idle > 2.5 ? 0 : 1;
-      seek(started ? t : poster); requestAnimationFrame(loop);
+      seek(started ? t : inst.poster); requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
-    const toggle = () => { started = true; if (t >= DUR - 0.02) go(0); playing = !playing; if (playing) { au.currentTime = t; au.play().catch(() => {}); } else au.pause(); idle = 0; };
+    const toggle = () => { started = true; if (t >= DUR - 0.02) t = 0; playing = !playing; if (playing) startA(); else stopA(); idle = 0; };
     addEventListener('click', toggle);
     addEventListener('mousemove', () => { idle = 0; });
     addEventListener('keydown', e => {
       if (e.code === 'Space') { e.preventDefault(); toggle(); }
-      else if (e.code === 'ArrowRight') { const n = start0.find(x => x > t + 0.05); go(n != null ? n : DUR - 0.01); }
-      else if (e.code === 'ArrowLeft') { const cur = [...start0].reverse().find(x => x <= t - 0.6); go(cur != null ? cur : 0); }
+      else if (e.code === 'ArrowRight') { const n = starts.find(x => x > t + 0.05); go(n != null ? n : DUR - 0.01); }
+      else if (e.code === 'ArrowLeft') { const c = [...starts].reverse().find(x => x <= t - 0.6); go(c != null ? c : 0); }
       else if (e.code === 'KeyF') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
       else if (e.code === 'KeyR') go(0);
     });
-  });
+  }
+
+  window.PeaceClass = { mount, player, STYLES, wav, wavBase64 };
+  // 수업용 파일 · 렌더용 페이지: LESSON 과 #stage 가 있으면 바로 띄운다
+  const st = document.getElementById('stage');
+  if (window.LESSON && st && !window.__NO_AUTO__) {
+    const inst = mount(st, window.LESSON);
+    Object.assign(window, { READY: inst.READY, seek: inst.seek, DUR: inst.DUR, HITS: inst.HITS, QA: inst.QA, TEXTS: inst.TEXTS, SCENES: inst.SCENES, AUDIO: inst.audio });
+    if (!window.__RENDER_MODE__) inst.READY.then(() => player(inst, st));
+  }
 })();

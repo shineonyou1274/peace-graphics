@@ -50,7 +50,7 @@
     h('option', { value: '' }, '예시 불러오기'), ...(window.EXAMPLES || []).map((ex, i) => h('option', { value: i }, ex.name)));
   const bar = h('header', { class: 'top' },
     h('div', { class: 'brand' }, h('b', {}, '●'), ' 수업 영상 스튜디오'),
-    h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showHelp() }, '처음이세요? 쓰는 법'), exSel,
+    h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showHelp() }, '처음이세요? 쓰는 법'), h('button', { class: 'ghost', onclick: () => voiceAI() }, '🗣 내 목소리 AI'), exSel,
       h('button', { class: 'ghost', onclick: () => fileIn.click() }, '시나리오 열기'),
       h('button', { class: 'ghost', onclick: saveJSON }, '시나리오 저장'),
       h('button', { class: 'main', onclick: exportHTML }, '수업용 파일 저장 ↓')), fileIn);
@@ -191,17 +191,92 @@
     return h('div', { class: 'row' }, h('span', {}, label), wrap);
   }
 
+  // 소리 파일 → 장면에 담기 (성공하면 true)
+  async function voiceFromBlob(sc, blob) {
+    try {
+      const a = new (window.AudioContext || window.webkitAudioContext)(); const b = await a.decodeAudioData(await blob.arrayBuffer()); a.close();
+      sc.voiceDur = +b.duration.toFixed(2);
+      sc.voiceData = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // 내 목소리 AI: 샘플 녹음 → 대본 → Qwen3-TTS(허깅페이스) → 받은 파일 한꺼번에 넣기
+  const SAMPLE_TEXT = '안녕하세요, 여러분. 오늘도 즐겁게 공부해 볼까요? 지금부터 함께 알아볼 내용은 아주 재미있어요. 천천히, 또박또박 들어 보세요.';
+  const QWEN = 'https://huggingface.co/spaces/Qwen/Qwen3-TTS';
+  function voiceAI() {
+    const copy = async (txt, btn) => { try { await navigator.clipboard.writeText(txt); } catch (e) { const t = h('textarea', {}, txt); document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); } const o = btn.textContent; btn.textContent = '복사했어요 ✓'; setTimeout(() => btn.textContent = o, 1500); };
+    // 1 샘플
+    let rec = null, sample = null;
+    const sst = h('span', { class: 'vst' }, '');
+    const sBtn = h('button', { class: 'pill', onclick: async () => {
+      if (rec) return rec.stop();
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const chunks = [];
+        rec = new MediaRecorder(stream); rec.ondataavailable = ev => chunks.push(ev.data);
+        rec.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop()); rec = null; sBtn.textContent = '🎙 다시 녹음'; sBtn.classList.remove('rec');
+          try { const a = new (window.AudioContext || window.webkitAudioContext)(); const b = await a.decodeAudioData(await new Blob(chunks).arrayBuffer()); a.close(); sample = PC.wav(b); sst.textContent = `샘플 ${b.duration.toFixed(1)}초 ✓ ` + (b.duration < 5 ? '(조금 짧아요 · 8초 이상 권장)' : ''); saveS.disabled = false; playS.disabled = false; }
+          catch (e) { sst.textContent = '녹음을 읽지 못했어요. 다시 해 주세요.'; }
+        };
+        rec.start(); sBtn.textContent = '■ 멈추기'; sBtn.classList.add('rec'); sst.textContent = '녹음 중… 아래 글을 읽어 주세요';
+      } catch (err) { alert('마이크를 쓸 수 없어요. 휴대폰으로 녹음한 파일을 Qwen 에 바로 올려도 돼요. (' + err.name + ')'); }
+    } }, '🎙 샘플 녹음');
+    const playS = h('button', { class: 'pill', disabled: true, onclick: () => new Audio(URL.createObjectURL(new Blob([sample], { type: 'audio/wav' }))).play() }, '▶ 듣기');
+    const saveS = h('button', { class: 'pill', disabled: true, onclick: () => download('내목소리_샘플.wav', sample, 'audio/wav') }, '샘플 저장 (.wav)');
+    // 2 대본
+    const lines = h('div', { class: 'says' });
+    const allText = () => L.scenes.map((sc, i) => sc.say ? `${String(i + 1).padStart(2, '0')} ${sc.say}` : null).filter(Boolean).join('\n');
+    L.scenes.forEach((sc, i) => {
+      const b = h('button', { class: 'pill', onclick: e => copy(sc.say || '', e.target) }, '복사');
+      lines.append(h('div', { class: 'sayrow' }, h('b', {}, String(i + 1).padStart(2, '0')), h('span', {}, TYPES[sc.type]?.name || sc.type),
+        h('textarea', { rows: 2, placeholder: '이 장면에서 읽을 대본 (비우면 이 장면은 목소리 없음)', oninput: e => { setp(sc, 'say', e.target.value); store.set('peace-studio-draft', JSON.stringify(L)); } }, sc.say || ''), b));
+    });
+    // 4 받은 파일
+    const res = h('div', { class: 'vst' });
+    const fin = h('input', { type: 'file', accept: 'audio/*', multiple: true, style: 'display:none', onchange: async e => {
+      const files = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true }));
+      const want = L.scenes.map((sc, i) => i).filter(i => L.scenes[i].say);
+      const done = [];
+      for (let k = 0; k < files.length; k++) {
+        const m = files[k].name.match(/(\d+)/); let i = m ? +m[1] - 1 : want[k];
+        if (!(i >= 0 && i < L.scenes.length)) i = want[k];
+        if (i == null) continue;
+        if (await voiceFromBlob(L.scenes[i], files[k])) done.push(`${i + 1}번 ← ${files[k].name}`);
+      }
+      res.textContent = done.length ? '넣었어요: ' + done.join(' · ') : '넣은 파일이 없어요. 파일 이름에 장면 번호(01, 02 …)를 넣어 주세요.';
+      renderLeft(); changed(true); fin.value = '';
+    } });
+    const box = h('div', { class: 'help', onclick: e => { if (e.target === box) box.remove(); } }, h('div', {},
+      h('button', { class: 'x', onclick: () => box.remove() }, '닫기 ✕'),
+      h('h2', {}, '🗣 내 목소리로 AI 가 읽게 하기'),
+      h('p', {}, '내 목소리 샘플 10초만 주면, AI(Qwen3-TTS · 무료 공개 모델)가 장면마다 대본을 내 목소리로 읽어 줘요. 한 장면씩 직접 녹음하지 않아도 돼요.'),
+      h('p', { class: 'warn' }, '⚠ 반드시 본인 목소리만 쓰세요. 다른 사람 목소리는 동의 없이 쓰면 안 돼요. 학생들에게 "AI 로 만든 선생님 목소리"라고 알려 주면 좋아요. 샘플과 대본은 허깅페이스(외부 사이트)로 보내져요.'),
+      h('h4', {}, '1 · 내 목소리 샘플 (한 번만)'),
+      h('p', { class: 'sample' }, SAMPLE_TEXT),
+      h('div', { class: 'pair' }, sBtn, playS, saveS, sst),
+      h('p', { class: 'hint' }, '조용한 곳에서, 평소 수업하는 말투로 읽으세요. 샘플은 다음에도 계속 쓸 수 있게 저장해 두세요.'),
+      h('h4', {}, '2 · 장면마다 읽을 대본'),
+      lines, h('button', { class: 'pill', onclick: e => copy(allText(), e.target) }, '대본 모두 복사'),
+      h('h4', {}, '3 · Qwen 에서 만들기 (장면마다 되풀이)'),
+      h('ol', {},
+        h('li', {}, h('a', { href: QWEN, target: '_blank', rel: 'noopener' }, 'Qwen3-TTS 열기 ↗'), ' → 위쪽 탭에서 ', h('b', {}, 'Voice Clone (Base)'), ' 를 누르세요. (오른쪽 위 Sign in 으로 허깅페이스에 로그인하면 무료로 더 많이 쓸 수 있어요)'),
+        h('li', {}, h('b', {}, 'Reference Audio'), ' 에 샘플(내목소리_샘플.wav)을 올리고, ', h('b', {}, 'Reference Text'), ' 에 위의 샘플 글을 그대로 붙여 넣으세요.'),
+        h('li', {}, h('b', {}, 'Target Text'), ' 에 장면 대본 하나를 붙여 넣고, ', h('b', {}, 'Language'), ' 는 ', h('b', {}, 'Korean'), ' 으로 → ', h('b', {}, 'Clone & Generate'), '.'),
+        h('li', {}, '나온 소리(Generated Audio) 오른쪽 ⬇ 로 내려받고, 파일 이름을 장면 번호로 바꿔 두세요 (예: 02.wav). 다음 장면도 같은 방법으로.')),
+      h('p', { class: 'hint' }, '"quota" 가 다 됐다는 말이 나오면 로그인하거나 잠시 뒤에 다시 하세요. 긴 대본은 두세 문장씩 나누면 더 자연스러워요.'),
+      h('h4', {}, '4 · 받은 파일 한꺼번에 넣기'),
+      h('div', { class: 'pair' }, h('button', { class: 'pill main', onclick: () => fin.click() }, '소리 파일 여러 개 고르기'), fin),
+      h('p', { class: 'hint' }, '파일 이름의 번호(01, 02 …)대로 그 장면에 들어가요. 번호가 없으면 대본이 있는 장면에 차례로 들어가요.'), res));
+    document.body.append(box);
+  }
+
   // 녹음: 마이크로 바로 녹음하거나 파일을 넣는다 → 장면에 담긴다
   function voiceField(sc, i) {
     const st = h('span', { class: 'vst' }, sc.voiceData ? `녹음 ${sc.voiceDur.toFixed(1)}초 ✓` : '녹음 없음');
     const fin = h('input', { type: 'file', accept: 'audio/*', style: 'display:none', onchange: e => e.target.files[0] && takeBlob(e.target.files[0]) });
     let rec = null;
-    const takeBlob = async blob => {
-      const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
-      try { const a = new (window.AudioContext || window.webkitAudioContext)(); const b = await a.decodeAudioData(await blob.arrayBuffer()); sc.voiceDur = +b.duration.toFixed(2); a.close(); }
-      catch (e) { alert('이 소리 파일을 읽지 못했어요. mp3 · wav · m4a 로 다시 넣어 주세요.'); return; }
-      sc.voiceData = url; st.textContent = `녹음 ${sc.voiceDur.toFixed(1)}초 ✓`; changed(true);
-    };
+    const takeBlob = async blob => { if (await voiceFromBlob(sc, blob)) { st.textContent = `녹음 ${sc.voiceDur.toFixed(1)}초 ✓`; changed(true); } else alert('이 소리 파일을 읽지 못했어요. mp3 · wav · m4a 로 다시 넣어 주세요.'); };
     const recBtn = h('button', { onclick: async e => {
       e.stopPropagation();
       if (rec) { rec.stop(); return; }
@@ -212,7 +287,8 @@
         rec.start(); recBtn.textContent = '■ 멈추기'; recBtn.classList.add('rec'); st.textContent = '녹음 중…';
       } catch (err) { alert('마이크를 쓸 수 없어요. 파일로 넣어 주세요. (' + err.name + ')'); }
     } }, '🎙 녹음');
-    return h('div', { class: 'voice' }, h('span', { class: 'vl' }, '목소리'), recBtn,
+    const say = h('textarea', { rows: 2, class: 'say', placeholder: '읽을 대본 (화면에는 안 나와요 · 녹음하거나 AI 목소리로 만들 때 읽을 글)', oninput: e => { setp(sc, 'say', e.target.value); store.set('peace-studio-draft', JSON.stringify(L)); } }, sc.say || '');
+    return h('div', { class: 'voice' }, say, h('span', { class: 'vl' }, '목소리'), recBtn,
       h('button', { onclick: e => { e.stopPropagation(); fin.click(); } }, '파일'),
       sc.voiceData ? h('button', { onclick: e => { e.stopPropagation(); new Audio(sc.voiceData).play(); } }, '▶ 듣기') : null,
       sc.voiceData ? h('button', { onclick: e => { e.stopPropagation(); delete sc.voiceData; delete sc.voiceDur; renderLeft(); changed(true); } }, '지우기') : null, st, fin);
@@ -333,6 +409,7 @@
       h('h4', {}, '🎙 내 목소리 넣기'),
       h('ol', {}, li('장면 아래 "🎙 녹음"을 누르세요. 처음 한 번 "마이크 허용"을 물으면 허용을 누르세요.', '그 장면의 글을 읽고 "■ 멈추기". "▶ 듣기"로 확인하고, 마음에 안 들면 다시 녹음하면 덮어써요.', '말 길이만큼 장면이 저절로 늘고, 말하는 동안 배경음이 작아져요.')),
       h('p', {}, '팁: 조용한 곳에서, 이어폰 마이크가 노트북 마이크보다 깨끗해요. 휴대폰 녹음 앱으로 녹음한 파일은 "파일" 버튼으로 넣어요. 장면 하나에 한 녹음이에요.'),
+      h('p', {}, '🗣 장면마다 녹음하기 번거로우면: 위쪽 "🗣 내 목소리 AI" — 내 목소리 샘플 10초로 AI 가 대본을 읽어 줘요(무료 · 본인 목소리만).'),
       h('h4', {}, '📷 사진 넣기'),
       h('ol', {}, li('"+ 장면 더하기 → 사진"을 누르고 "📷 사진 넣기" (또는 사진을 복사해 그 칸을 누르고 Ctrl+V, 끌어다 놓기도 돼요).', '사진 위에서 짚을 곳을 누르면 번호가 생겨요. 번호마다 이름표(예: 엽록체)를 적으면, 영상에서 점이 차례로 짚고 이름표가 붙어요.', '옆에 나올 설명을 적어요. [[이렇게]] 묶은 말은 형광펜으로 칠해져요.')),
       h('p', {}, '학생 얼굴은 동의를 받고, 교과서 · 인터넷 그림은 저작권을 확인하세요. 직접 찍은 사진이 가장 안전해요.'),

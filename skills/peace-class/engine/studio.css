@@ -89,3 +89,16 @@ textarea { resize: vertical; }
 .help p, .help li { font-size: 14px; line-height: 1.6; }
 .help ol, .help ul { padding-left: 20px; margin: 4px 0; }
 .help .x { float: right; border: none; background: #eee; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.voice .say { width: 100%; font-size: 13px; }
+.help .pill { border: 1px solid var(--s-line); background: #fff; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.help .pill:disabled { opacity: .45; cursor: default; }
+.help .pill.rec { background: #ff4d5e; color: #fff; border-color: #ff4d5e; }
+.help .pill.main { background: #151518; color: #fff; border-color: #151518; font-weight: 900; }
+.help .warn { background: #fff7e0; border: 1px solid #f0d48a; border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.help .sample { background: #f3f2ee; border-radius: 10px; padding: 10px 14px; font-size: 16px; line-height: 1.7; }
+.help .hint, .help .vst { color: var(--s-dim); font-size: 12.5px; }
+.help .pair { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.help .says { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.help .sayrow { display: grid; grid-template-columns: 26px 64px 1fr auto; gap: 6px; align-items: center; font-size: 13px; }
+.help .sayrow span { color: var(--s-dim); font-size: 12px; }
+.help > div { max-width: 720px; }

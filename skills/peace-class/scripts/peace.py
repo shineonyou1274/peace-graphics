@@ -8,6 +8,9 @@
   python3 peace.py video  <작업 폴더> [--draft]       mp4 (Node + Playwright + ffmpeg 가 있을 때)
   python3 peace.py blank  <출력.html>                 예시만 담은 빈 스튜디오 (배포용)
   python3 peace.py doctor                             이 컴퓨터에서 무엇이 되나 · mp4 에 무엇을 깔아야 하나
+  python3 peace.py voice  <작업 폴더> --sample 샘플.wav --sample-text "샘플에서 한 말"
+                                                      장면마다 say(대본)를 선생님 목소리로(Qwen3-TTS 목소리 복제 · 허깅페이스)
+                                                      pip install gradio_client · HF_TOKEN(허깅페이스 토큰) 권장 — 본인 목소리만
 
 필요한 것: Python 3 표준 라이브러리만. fontTools + brotli 가 있으면 글꼴을 쓴 글자만 잘라 파일이 작아진다.
 """
@@ -214,6 +217,49 @@ elif cmd == 'blank':
     os.makedirs(os.path.dirname(work) or '.', exist_ok=True)
     first = next((e for e in ex if e['lesson'].get('title') == '광합성'), ex[0])   # 처음 여는 선생님께는 16:9 과학 예시
     studio_html(first['lesson'], work)
+
+elif cmd == 'voice':
+    # 선생님 목소리 샘플 → 장면마다 대본(say)을 그 목소리로 (Qwen3-TTS · Apache-2.0 공개 모델, 허깅페이스 Space)
+    def val(k):
+        return opt[opt.index(k) + 1] if k in opt and opt.index(k) + 1 < len(opt) else None
+    sample, stext = val('--sample'), val('--sample-text')
+    if not sample or not stext:
+        sys.exit('--sample 샘플.wav --sample-text "샘플에서 한 말 그대로" 가 필요해요')
+    try:
+        from gradio_client import Client, handle_file
+    except ImportError:
+        sys.exit('pip install gradio_client 를 먼저 해 주세요 (또는 스튜디오의 "🗣 내 목소리 AI" 로 직접)')
+    lp = os.path.join(work, 'lesson.json')
+    L = json.loads(read(lp))
+    space = val('--space') or 'Qwen/Qwen3-TTS'
+    tok = os.environ.get('HF_TOKEN')
+    try:
+        c = Client(space, verbose=False, **({'token': tok} if tok else {}))
+    except TypeError:
+        c = Client(space, verbose=False, hf_token=tok) if tok else Client(space, verbose=False)
+    os.makedirs(os.path.join(work, 'voice'), exist_ok=True)
+    only = val('--only')
+    for i, sc in enumerate(L['scenes']):
+        say = (sc.get('say') or '').strip()
+        if not say or (only and str(i + 1) not in only.split(',')):
+            continue
+        out = os.path.join('voice', f'{i + 1:02d}.wav')
+        try:
+            a, st = c.predict(handle_file(os.path.abspath(sample)), stext, say, 'Korean', False, val('--size') or '1.7B', api_name='/generate_voice_clone')
+        except Exception as e:
+            msg = str(e)
+            if 'quota' in msg.lower():
+                sys.exit(f'장면 {i + 1}: 허깅페이스 무료 GPU 시간이 다 됐어요. HF_TOKEN(로그인 토큰)을 주거나 잠시 뒤에 --only {i + 1},… 로 이어서 하세요.\n{msg[:200]}')
+            sys.exit(f'장면 {i + 1}: {msg[:300]}')
+        if not a:
+            sys.exit(f'장면 {i + 1}: {st}')
+        shutil.copy(a, os.path.join(work, out))
+        sc['voice'] = out
+        sc.pop('voiceData', None); sc.pop('voiceDur', None)
+        print(f'  장면 {i + 1:02d} → {out} ({audio_len(os.path.join(work, out)):.1f}초)')
+        with open(lp, 'w', encoding='utf-8') as f:
+            json.dump(L, f, ensure_ascii=False, indent=2)
+    print('→ lesson.json 에 목소리를 달았어요. 이제 studio 또는 share 로 파일을 만드세요.')
 
 elif cmd == 'share':
     L = load_lesson()

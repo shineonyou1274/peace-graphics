@@ -1,0 +1,15 @@
+{
+  "title": "일차함수의 기울기",
+  "subject": "수학",
+  "unit": "중2 · 일차함수",
+  "ratio": "16:9",
+  "mood": "calm",
+  "scenes": [
+    { "type": "title", "title": "기울기", "sub": "가파름을 숫자로" },
+    { "type": "concept", "term": "기울기", "text": "x의 값이 1만큼 증가할 때 y의 값이 얼마나 증가하는지 나타내는 수", "keys": ["1만큼 증가할 때", "얼마나 증가하는지"] },
+    { "type": "steps", "title": "y = 2x + 1 에서", "lines": ["x = 0 \\quad\\Rightarrow\\quad y = 1", "x = 1 \\quad\\Rightarrow\\quad y = \\hl{3}", "\\text{기울기} = \\dfrac{\\hl{3} - 1}{1 - 0} = \\hl{2}"], "note": "x가 1 늘면 y는 2 는다" },
+    { "type": "graph", "fns": [{ "f": "2*x+1", "label": "y = 2x + 1" }, { "f": "0.5*x+1", "label": "y = \\tfrac{1}{2}x + 1" }], "x": [-4, 4], "y": [-3, 7], "tri": { "fn": 0, "at": 1 }, "note": "기울기가 클수록 가파르다" },
+    { "type": "fix", "wrong": "기울기 = $\\dfrac{x\\text{의 증가량}}{y\\text{의 증가량}}$", "right": "기울기 = $\\dfrac{y\\text{의 증가량}}{x\\text{의 증가량}}$", "why": "y가 위, x가 아래!" },
+    { "type": "end", "text": "기울기는 가파름의 숫자", "sub": "다음 시간 · y절편" }
+  ]
+}

@@ -1,7 +1,7 @@
 # NOTICE
 
 ## 바탕이 된 자료
-- **motion-studio** (Claude 스킬) — 원작: 원작자
+- **motion-studio** (Claude 스킬) — 원작: 원작자 (motion-studio-academy 의 학습 내용에만 해당 · peace-class 는 이 코드를 쓰지 않음)
 - **motion-plan** · **motion-3d** (Claude 서브 스킬) — 원작: 원작자
 - **motion-studio.4ai.md** — motion-studio · motion-plan · motion-3d AI용 안내 문서 · 문서판 v1 · 2026-11-23 · 만든 사람: 원작자 · 형식: .4ai.md v0.9 (https://github.com/nk-mjk/4ai-md)
 - **모션 메뉴판** — https://claude.ai/artifact/SionKLsLkEEMqicfABitwV
@@ -13,3 +13,8 @@
 ## 정확성
 레슨은 원작 안내 문서 기준 시점(motion-studio 0.33.19 · motion-plan 0.4.0 · motion-3d 0.5.4)의 내용입니다.
 설치된 원본과 다르면 원본이 맞습니다. 레슨에 없는 기능 · 오류는 원작자에게 문의하세요.
+
+## peace-class
+- Shiny Peace Studio 가 직접 만든 영상 엔진(videointro · videointro2 의 render_dom.mjs · compose.py)과 취향 기록 · 영상 스튜디오 공정 원칙을 바탕으로 새로 만들었다. motion-studio 의 코드 · 문서는 쓰지 않았다.
+- KaTeX (MIT License, `skills/peace-class/engine/katex/LICENSE`) 를 함께 싣는다.
+- 글꼴은 Google Fonts 의 Noto Sans KR · Nanum Pen Script · Anton (SIL Open Font License) 을 쓸 때마다 받는다.

@@ -1,0 +1,56 @@
+/* peace-class 수업 모션 그래픽 — 화면 틀과 장면 공통 모양 */
+@font-face { font-family: 'KR'; font-weight: 500; src: url('../fonts/kr-500.woff2') format('woff2'); }
+@font-face { font-family: 'KR'; font-weight: 900; src: url('../fonts/kr-900.woff2') format('woff2'); }
+@font-face { font-family: 'PEN'; src: url('../fonts/pen.woff2') format('woff2'); }
+@font-face { font-family: 'ANTON'; src: url('../fonts/anton.woff2') format('woff2'); }
+
+:root { --bg: #0f0f12; --ink: #f4f4f0; --dim: #8a8a90; --line: #2c2c33; --acc: #d7ff00; --bad: #ff4d5e; --u: 10.8px; }
+.theme-light { --bg: #f6f5f0; --ink: #141416; --dim: #77777d; --line: #d9d8d2; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; overflow: hidden; }
+#stage { position: relative; overflow: hidden; word-break: keep-all; overflow-wrap: break-word; background: var(--bg); color: var(--ink); font-family: 'KR', sans-serif; font-weight: 500; transform-origin: 0 0; }
+.scene { position: absolute; inset: 0; display: none; }
+.abs { position: absolute; }
+
+/* 화면 틀: 네 귀퉁이 라벨, 얇은 선, 진행 막대 */
+.frame { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.frame .lab { position: absolute; font-family: 'ANTON', 'KR', sans-serif; font-weight: 500; font-size: calc(var(--u) * 1.55); letter-spacing: .32em; color: var(--dim); text-transform: uppercase; white-space: nowrap; }
+.frame .lab b { color: var(--acc); font-weight: 500; }
+.frame .rule { position: absolute; height: 1px; background: var(--line); }
+.frame .prog { position: absolute; height: calc(var(--u) * .35); background: var(--acc); left: 0; }
+
+/* 글자 */
+.big { font-weight: 900; line-height: 1.12; letter-spacing: -.01em; }
+.kicker { font-family: 'ANTON', 'KR', sans-serif; letter-spacing: .38em; color: var(--acc); font-size: calc(var(--u) * 1.9); text-transform: uppercase; }
+.pen { font-family: 'PEN', 'KR', cursive; color: var(--acc); line-height: 1.1; }
+.mask { display: inline-block; overflow: hidden; vertical-align: bottom; padding: .04em .02em .1em; margin: -.04em -.02em -.1em; }
+.mask > span { display: inline-block; will-change: transform; }
+.word { display: inline-block; white-space: pre; }
+.key { position: relative; display: inline; white-space: nowrap; }
+.key .bar { position: absolute; left: -.08em; right: -.08em; top: .12em; bottom: .02em; background: var(--acc); opacity: .9; z-index: -1; transform-origin: 0 50%; transform: scaleX(0); }
+.key.on { color: #111; }
+.theme-light .key.on { color: #111; }
+.textwrap { position: relative; z-index: 0; }
+.head { font-weight: 900; color: var(--dim); letter-spacing: .02em; }
+
+/* 수식 */
+.katex { font-size: 1em; color: var(--ink); font-family: KaTeX_Main, 'KR', serif; }
+.katex .text, .katex .text * { font-family: KaTeX_Main, 'KR', serif; }
+.hl { position: relative; z-index: 0; padding: 0 .08em; }
+.hl::before { content: ''; position: absolute; inset: -.08em -.06em; background: var(--acc); z-index: -1; transform-origin: 0 50%; transform: scaleX(var(--k, 0)); border-radius: .08em; }
+.hl.on, .hl.on .mord, .hl.on .mbin, .hl.on .mrel, .hl.on .mopen, .hl.on .mclose, .hl.on .mpunct { color: #111; }
+
+/* 점: 영상 전체를 끌고 가는 형광 점 하나 */
+.dot { position: absolute; left: 0; top: 0; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); margin: calc(var(--u) * -1.3) 0 0 calc(var(--u) * -1.3); border-radius: 50%; background: var(--acc); z-index: 6; box-shadow: 0 0 calc(var(--u) * 2.4) color-mix(in srgb, var(--acc) 70%, transparent); will-change: transform; }
+
+/* 그래프 · 도형 */
+svg { overflow: visible; }
+.ax { stroke: var(--ink); stroke-width: 3; fill: none; }
+.grid { stroke: var(--line); stroke-width: 1.5; }
+.tick { fill: var(--dim); font-family: 'KR'; font-weight: 500; }
+.curve { fill: none; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.pt { fill: var(--acc); }
+.ptlab { fill: var(--ink); font-family: 'KR'; font-weight: 900; }
+.card { position: absolute; border: 2px solid var(--line); border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * 2.4) calc(var(--u) * 2.8); }
+.src { position: absolute; color: var(--dim); font-size: calc(var(--u) * 1.4); letter-spacing: .05em; }

@@ -1,4 +1,40 @@
-# 🎬 Peace Graphics — 선생님을 위한 모션 그래픽 배움터
+# 🎬 Peace Graphics — 선생님을 위한 수업 모션 그래픽
+
+이 저장소에는 Claude 스킬이 두 개 있습니다.
+
+| 스킬 | 하는 일 |
+|---|---|
+| **[peace-class](skills/peace-class/)** ⭐ 새로 만듦 | **수업 원고 → 수업 모션 그래픽 영상(mp4)**. 형광 점 하나가 제목을 밝히고, 형광펜이 되고, 그래프를 그리고, 연표의 시간이 되고, 마침표가 됩니다. 수식은 교과서처럼(KaTeX), 함수 그래프는 식을 계산해 정확히, 소리는 코드로 새로 작곡 |
+| **[motion-studio-academy](skills/motion-studio-academy/)** | motion-studio 사용법을 배우는 학습 튜터 (레슨 · 퀴즈 · 과목별 실습) |
+
+### 견본 (peace-class 로 만든 영상)
+| 수학 · 일차함수의 기울기 (16:9 · 39초) | 사회 · 조선 전기의 흐름 (9:16 쇼츠 · 27초) |
+|---|---|
+| ![](samples/수학_정지화면.png) | ![](samples/사회_정지화면.png) |
+| [영상 보기](samples/수학_일차함수의_기울기_16x9.mp4) | [영상 보기](samples/사회_조선_전기의_흐름_9x16.mp4) |
+
+### peace-class 장면 틀 10가지
+제목 · 개념(형광펜) · 수식 전개(바뀐 곳 형광) · 함수 그래프(기울기 삼각형 · 점 찍기) · 막대그래프 · 연표 · 둘 비교 · **흔한 실수 → ✕ → 되감기 → 바로잡기** · 과정 · 마무리(손글씨)
+
+### peace-class 쓰는 법
+Claude 에 스킬을 올리고 이렇게 말합니다.
+```
+수업 영상 만들어줘. 중2 일차함수 기울기, 수업 도입 40초.
+원문 사실: y = 2x + 1 에서 x가 1 늘면 y는 2 는다 …
+```
+Claude 가 장면 표를 보여 주고(⏸ 확인) → 정지 화면과 **화면 글자 목록**을 보여 주고(⏸ 교과서와 대조) → 영상을 굽습니다.
+직접 돌릴 때는:
+```bash
+python3 skills/peace-class/scripts/peace.py new   내수업 --from math-slope   # 예시로 시작 → 내수업/lesson.json 고치기
+python3 skills/peace-class/scripts/peace.py build 내수업                     # 내수업/lesson.html 을 브라우저로 열면 바로 미리보기
+python3 skills/peace-class/scripts/peace.py check 내수업                     # 점검 · 소리 · 정지 화면
+python3 skills/peace-class/scripts/peace.py video 내수업                     # mp4
+```
+필요한 것: Python 3 (`pip install numpy scipy pillow`) · Node.js + Playwright(chromium) · ffmpeg
+
+---
+
+## motion-studio-academy — motion-studio 배우기
 
 **수학 · 과학 개념 설명, 그래프, 국어 · 영어 · 사회 수업 영상을 Claude 로 직접 만들 수 있게 가르쳐 주는 학습 스킬 모음**
 

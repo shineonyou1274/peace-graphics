@@ -316,10 +316,10 @@ def examples():
     return out
 
 
-def studio_html(L, path, tab=None):
+def studio_html(L, path, tab=None, head=''):
     style, kcss, kjs, rt = inline_assets(None)   # 스튜디오는 무슨 글이든 칠 수 있게 글꼴 통째로
     tpl = read(os.path.join(ENG, 'studio.html'))
-    rep = {'{{TITLE}}': tab or f"{L.get('title', '수업')} · shiny-peace 수업영상제작소", '{{KATEX_CSS}}': kcss, '{{STYLE}}': style, '{{STUDIO_CSS}}': read(os.path.join(ENG, 'studio.css')),
+    rep = {'{{HEAD}}': head, '{{TITLE}}': tab or f"{L.get('title', '수업')} · shiny-peace 수업영상제작소", '{{KATEX_CSS}}': kcss, '{{STYLE}}': style, '{{STUDIO_CSS}}': read(os.path.join(ENG, 'studio.css')),
            '{{KATEX_JS}}': kjs, '{{RUNTIME}}': rt, '{{LESSON}}': dumps(L), '{{EXAMPLES}}': dumps(examples()),
            '{{STUDIO_JS}}': read(os.path.join(ENG, 'studio.js')).replace('</script', '<\\/script')}
     for k, v in rep.items():
@@ -348,7 +348,14 @@ elif cmd == 'blank':
     ex = examples()
     os.makedirs(os.path.dirname(work) or '.', exist_ok=True)
     first = next((e for e in ex if e['lesson'].get('title') == '수업영상제작소'), ex[0])   # 처음 여는 선생님께는 제작소 소개(교과 예시는 '예시 불러오기')
-    studio_html(first['lesson'], work, tab='shiny-peace 수업영상제작소')
+    og = ('\n<meta name="description" content="설치 없이 브라우저로 여는 수업 모션 그래픽 스튜디오 · 움직이는 스타일을 보고 고르고 글만 고치면 수업 영상">'
+          '\n<meta property="og:title" content="shiny-peace 수업영상제작소">'
+          '\n<meta property="og:description" content="설치 없이 브라우저로 · 움직이는 스타일을 보고 고르고 글만 고치면 수업 영상이 돼요">'
+          '\n<meta property="og:type" content="website">'
+          '\n<meta property="og:image" content="https://shineonyou1274.github.io/peace-graphics/download/og.jpg">'
+          '\n<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'
+          '\n<meta name="twitter:card" content="summary_large_image">')
+    studio_html(first['lesson'], work, tab='shiny-peace 수업영상제작소', head=og)
 
 elif cmd == 'voice':
     # 선생님 목소리 샘플 → 장면마다 대본(say)을 그 목소리로 (Qwen3-TTS · Apache-2.0 공개 모델, 허깅페이스 Space)

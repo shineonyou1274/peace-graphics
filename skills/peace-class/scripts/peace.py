@@ -304,7 +304,7 @@ def inline_assets(text=None):
 
 
 def dumps(o):
-    return json.dumps(o, ensure_ascii=False).replace('</', '<\\/')
+    return json.dumps(o, ensure_ascii=False).replace('<', '\\u003c')   # 파일 안에 담을 때 글 속 < 가 태그로 읽히지 않게
 
 
 def examples():

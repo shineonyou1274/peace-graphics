@@ -94,6 +94,20 @@
   const TRANS = [['rise', '흐려지며 위로', '형광'], ['page', '지면 넘기기', '신문'], ['erase', '지우개로 지우기', '칠판'], ['flip', '공책 넘기기', '공책'], ['pop', '통통 튀기', '팝'], ['fade', '살며시', '모눈'],
     ['wipe', '선 긋듯 밀기', '청사진'], ['ink', '먹 번지기', '먹'], ['paper', '색종이 붙였다 떼기', '종이 공작'], ['pixel', '블록 넘김', '픽셀'], ['cinema', '천천히 다가가기', '예고편'], ['zoom', '끝없는 줌', '점 속으로 빨려 들어감']];
 
+  // ---- 밖에서 받은 시나리오를 안전하게 ----
+  // 그래프 식: x · 숫자 · + - * / ^ ( ) , · 수학 함수 이름만. 그 밖의 글자나 이름이 있으면 그리지 않는다(코드가 실행되지 않게)
+  const MATHN = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'sqrt', 'cbrt', 'abs', 'log', 'log10', 'log2', 'exp', 'pow', 'floor', 'ceil', 'round', 'min', 'max', 'sign', 'PI', 'E'];
+  const safeFn = src => {
+    src = String(src);
+    if (src.length > 200 || !/^[\w\s.+\-*/(),]*$/.test(src)) throw new Error('그래프 식에는 x · 숫자 · + - * / ^ ( ) 와 수학 함수(sin · sqrt …)만 쓸 수 있어요');
+    const ids = src.replace(/\d*\.?\d+(?:e[+-]?\d+)?/gi, '0').match(/[A-Za-z_]\w*/g) || [];
+    const bad = ids.find(id => id !== 'x' && !MATHN.includes(id));
+    if (bad) throw new Error(`그래프 식에 쓸 수 없는 말이 있어요: ${bad.slice(0, 20)}`);
+    return new Function('x', `"use strict"; const {${MATHN.join(',')}} = Math; return (${src});`);
+  };
+  const safeColor = c => { c = String(c == null ? '' : c).trim(); return /^(#[0-9a-f]{3,8}|[a-z]{3,20}|(rgb|hsl)a?\([\d\s.,%deg]{1,60}\))$/i.test(c) ? c : null; };
+  const safeSrc = u => { u = String(u || ''); return /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(u) || (!/^[a-z][\w+.-]*:/i.test(u) && !u.startsWith('//')); };   // 파일 안 사진 · 작업 폴더 안 경로만(밖의 주소 X)
+  const safeAudio = u => /^data:audio\/[\w.+-]+(;[\w.+-]+=[\w.+-]+)*;base64,/i.test(String(u || ''));
   // 대사를 자막 토막으로: 문장 → 길면 쉼표 → 그래도 길면 띄어쓰기에서(한 토막 26자 안팎)
   const chunkSay = t => {
     const MAX = 26, out = [];
@@ -123,8 +137,9 @@
   // 장면마다 스타일을 따로 고를 수 있다(sc.style). 지금 보이는 장면의 스타일로 무대 전체(바탕 · 점 · 틀 · 장식)가 바뀐다
   const STY0 = styleOf(L), styleOfScene = sc => (sc && sc.style && STYLES.find(x => x.id === sc.style)) || STY0;
   const USED = new Set([STY0.id, ...L.scenes.map(sc => styleOfScene(sc).id), ...L.scenes.filter(sc => sc.type === 'gallery').flatMap(sc => sc.styles && sc.styles.length ? sc.styles : STYLES.map(x => x.id))]);
-  let STY = STY0, ACC = L.accent || STY0.acc(L.subject);
-  const useStyle = sty => { STY = sty; ACC = L.accent || sty.acc(L.subject); };
+  const ACC0 = safeColor(L.accent);   // 밖에서 받은 시나리오의 색은 색 모양일 때만
+  let STY = STY0, ACC = ACC0 || STY0.acc(L.subject);
+  const useStyle = sty => { STY = sty; ACC = ACC0 || sty.acc(L.subject); };
   const BAD = '#ff4d5e';
   // ---------- 작은 도구 ----------
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -143,7 +158,7 @@
   const box = e => { const sr = stage.getBoundingClientRect(), r = e.getBoundingClientRect(), k = sr.width / W || 1; return { x: (r.left - sr.left) / k, y: (r.top - sr.top) / k, w: r.width / k, h: r.height / k }; };
   const arc = (a, b, k, lift) => { const x = lerp(a.x, b.x, k), y = lerp(a.y, b.y, k); const d = Math.hypot(b.x - a.x, b.y - a.y); return { x, y: y - Math.sin(Math.PI * k) * (lift != null ? lift : Math.min(d * .32, 16 * U)) }; };
   // 수식: $...$ 은 KaTeX, [[...]] 은 형광 칠할 곳
-  const KOPT = { throwOnError: false, strict: false, trust: true, macros: { '\\hl': '\\htmlClass{hl}{#1}' } };
+  const KOPT = { throwOnError: false, strict: false, trust: c => c.command === '\\htmlClass' && c.class === 'hl', maxExpand: 200, macros: { '\\hl': '\\htmlClass{hl}{#1}' } };
   const rich = (parent, str) => {
     String(str).split(/(\$[^$]+\$)/).forEach(part => {
       if (!part) return;
@@ -167,7 +182,7 @@
   // ---------- 화면 틀 ----------
   const frame = el('div', 'frame', stage);
   const top = R ? S.y - 8 * U : 4.2 * U, bot = R ? S.y + S.h + 5 * U : H - 6.2 * U;
-  const labTL = el('div', 'lab', frame); labTL.innerHTML = `<b>${L.subject || ''}</b>  ${L.unit || ''}`;
+  const labTL = el('div', 'lab', frame); el('b', null, labTL, L.subject || ''); labTL.appendChild(document.createTextNode('  ' + (L.unit || '')));   // 글은 글로만(태그로 읽지 않는다)
   const labTR = el('div', 'lab', frame); const labBL = el('div', 'lab', frame, L.brand || 'PEACE CLASS'); const labBR = el('div', 'lab', frame);
   place(labTL, S.x, top); place(labBL, S.x, bot);
   const ruleT = el('div', 'rule', frame); place(ruleT, S.x, top + 3.4 * U, S.w);
@@ -393,10 +408,11 @@
     const lx = sv('text', { x: P.x + P.w + 1.2 * U, y: Y(clamp(0, y0, y1)) + .9 * U, class: 'tick', 'font-size': 2.8 * U, 'font-style': 'italic' }, svg); lx.textContent = 'x';
     const ly = sv('text', { x: X(clamp(0, x0, x1)) + 1.2 * U, y: P.y - 1.2 * U, class: 'tick', 'font-size': 2.8 * U, 'font-style': 'italic' }, svg); ly.textContent = 'y';
     const COLS = [ACC, 'var(--ink)', '#6fd3ff', '#ff8f6b'];
-    const fns = (sc.fns || []).map((f, j) => {
+    const fns = (sc.fns || []).map((f0, j) => {
+      const f = { ...f0, color: safeColor(f0.color) };
       // 앞에 붙은 빼기(-(x-2)**2 · -x**2)는 자바스크립트가 못 읽으니 -1* 로 바꿔 읽는다 · ^ 도 거듭제곱으로
       const src = String(f.f).replace(/\^/g, '**').replace(/(^|[(,=+\-*/]\s*)-(?=\s*[\w(.])/g, '$1-1*');
-      const fn = new Function('x', `with (Math) { return (${src}); }`);
+      const fn = safeFn(src);
       let d = '', pen = false; const N = 400;
       for (let i = 0; i <= N; i++) { const x = x0 + (x1 - x0) * i / N, y = fn(x); if (!isFinite(y) || y < y0 - (y1 - y0) || y > y1 + (y1 - y0)) { pen = false; continue; } d += (pen ? 'L' : 'M') + X(x).toFixed(1) + ' ' + Y(y).toFixed(1); pen = true; }
       const path = sv('path', { d, class: 'curve', stroke: f.color || COLS[j % 4], 'clip-path': `url(#${clipId})` }, svg);
@@ -691,6 +707,7 @@
   T.photo = (sc, root) => {
     const PIXEL = STY.id === 'pixel';
     const DRAW = sc.draw && ART[sc.draw] ? artSVG(sc.draw, STY.id, ACC) : null;   // 그림 자료(사진 대신 · 스타일에 맞춰 그림)
+    if (sc.src && !safeSrc(sc.src)) throw new Error('이 사진은 열 수 없어요(파일 안에 담긴 사진이나 작업 폴더의 사진만 돼요)');
     if (!sc.src && !DRAW) throw new Error('사진을 넣어 주세요');
     const pins = (sc.pins || []).filter(q => q && q.x != null && q.y != null);
     const hasSide = !!(sc.title || sc.caption);
@@ -1182,7 +1199,7 @@
     SCENES.forEach((s, i) => { if (i && ((L.scenes[i] && L.scenes[i].style) || L.style || L.theme) === 'cinema') I.boom(s.t0 + 0.05, 0.5); });   // 장면이 바뀔 때마다 낮게 쾅
     // 녹음(선생님 목소리) — 장면 시작 0.35초 뒤 · 말하는 동안 배경음을 낮춘다
     for (let i = 0; i < L.scenes.length; i++) {
-      const sc = L.scenes[i]; if (!sc.voiceData) continue;
+      const sc = L.scenes[i]; if (!sc.voiceData || !safeAudio(sc.voiceData)) continue;   // 파일 안에 담긴 소리만(밖의 주소 X)
       try {
         const ab = await (await fetch(sc.voiceData)).arrayBuffer(); const buf = await ctx.decodeAudioData(ab);
         const t = SCENES[i].t0 + 0.35, s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = 1.0; s.connect(g); g.connect(vo); s.start(t);

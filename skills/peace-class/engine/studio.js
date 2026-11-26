@@ -16,7 +16,7 @@
     return e;
   };
   const clone = o => JSON.parse(JSON.stringify(o));
-  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
   // 아티팩트(claude.ai 안)에서는 alert · confirm 이 안 뜬다 → 화면 안에서 묻고 알린다
   const IN_ART = !!(window.claude && typeof window.claude.use === 'function');
   const modal = (msg, btns) => new Promise(res => {
@@ -104,7 +104,7 @@
   const pvSec = h('section', { class: 'sec-pv' }, h('h3', {}, '미리보기 ', h('small', {}, '아래 장면 번호를 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox);
   const saveSec = h('section', { class: 'sec-save' }, h('h3', {}, '어떻게 쓸까요?'),
     h('div', { class: 'savegrid' },
-      h('div', { class: 'savecard' }, h('b', {}, '📄 수업에 바로 쓰기'), h('p', {}, '재생 파일 하나로 저장해요. 수업 시간에 열어 재생하고, 다른 선생님께 보내도 돼요.'), h('button', { class: 'pill main', onclick: exportHTML }, '수업용 파일 저장')),
+      h('div', { class: 'savecard' }, h('b', {}, '📄 수업에 바로 쓰기'), h('p', {}, '브라우저로 여는 재생 파일 하나로 저장해요(영상 파일은 오른쪽 카드). 수업 시간에 열어 재생하고, 다른 선생님께 보내도 돼요.'), h('p', { class: 'mini' }, '⚠ 넣은 사진과 녹음한 목소리도 파일 안에 함께 들어가요. 보내기 전에 확인하세요.'), h('button', { class: 'pill main', onclick: exportHTML }, '수업용 파일 저장')),
       h('div', { class: 'savecard' }, h('b', {}, '💾 나중에 이어서 · Claude 에게 보내기'), h('p', {}, '고친 내용을 파일로 저장해요. Claude 에게 보내며 "이걸로 내 목소리 넣고 영상 만들어 줘"라고 하면 목소리와 mp4 를 만들어 줘요.'), h('button', { class: 'pill main', onclick: saveJSON }, '시나리오 저장')),
       h('div', { class: 'savecard' }, h('b', {}, '🎬 영상 파일 (mp4)'), h('p', {}, '이 브라우저에서 바로 만들어요. 영상을 한 번 재생하며 영상 칸만 녹화해 파일로 저장해요(영상 길이만큼 걸려요). 크롬 · 엣지 · 웨일에서 돼요.'), h('button', { class: 'pill main', onclick: () => recordVideo() }, '영상 파일로 저장'),
         h('p', { class: 'mini' }, '내 목소리를 AI 로 넣고 싶으면 시나리오 파일과 10초 녹음을 Claude 에게 보내 주세요.'))));
@@ -115,7 +115,28 @@
     h('section', { class: 'sec-flow' }, h('h3', {}, '흐름 보기 ', h('small', {}, '장면 순서대로 · 그림을 누르면 미리보기로 · 아래 칸에서 대사 · 자막을 바로 고쳐요')), flow),
     saveSec);
 
-  function renderAll() { renderLeft(); refresh(true); }
+  function renderAll() { renderLeft(); refresh(true); saveDraft(); }   // 장면 더하기 · 지우기 · 옮기기 · 복제도 바로 보관
+  // ---------- 자동 보관: 이 브라우저에 · 넘치면 알리고 · 다른 탭과 부딪히면 알린다 ----------
+  const TAB = Math.random().toString(36).slice(2), DK = 'peace-studio-draft', OK_ = 'peace-studio-owner';
+  let paused = false, warnedFull = false, notice = null;
+  const banner = (msg, btns = []) => {
+    if (notice) notice.remove();
+    notice = h('div', { class: 'restore warnbar' }, msg, ...btns, h('button', { onclick: () => { notice.remove(); notice = null; } }, '닫기'));
+    app.insertBefore(notice, app.children[2] || null);
+  };
+  function saveDraft() {
+    if (paused) return;
+    const ok = store.set(DK, JSON.stringify(L)) && store.set(OK_, TAB + ':' + Date.now());
+    if (!ok && !warnedFull) { warnedFull = true; banner('⚠ 사진 · 목소리가 많아 이 브라우저에 자동 보관을 못 했어요. 닫기 전에 4단계 「시나리오 저장」으로 파일을 꼭 저장해 두세요.', [h('button', { onclick: () => saveJSON() }, '지금 시나리오 저장')]); }
+    if (ok) warnedFull = false;
+  }
+  addEventListener('storage', e => {   // 다른 탭(창)에서 같은 스튜디오를 고치면
+    if (e.key !== OK_ || !e.newValue || e.newValue.startsWith(TAB + ':')) return;
+    paused = true;
+    banner('⚠ 다른 탭(창)에서도 이 스튜디오를 고치고 있어요. 서로 덮어쓰지 않게 이 탭은 자동 보관을 멈췄어요. 한 곳에서만 고쳐 주세요.', [h('button', { onclick: () => { paused = false; notice && notice.remove(); notice = null; saveDraft(); } }, '이 탭으로 계속하기')]);
+  });
+  addEventListener('pagehide', () => saveDraft());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveDraft(); });
 
   // ---------- 왼쪽: 수업 정보 · 장면 목록 ----------
   function renderLeft() {
@@ -218,7 +239,8 @@
     const take = async f => { if (!f || !/^image\//.test(f.type)) return uiSay('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); delete sc.draw; changed(true); renderLeft(); } catch (e) { uiSay(e.message); } };
     const fin = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: e => take(e.target.files[0]) });
     const wrap = h('div', { class: 'photo-f' });
-    const shown = sc.draw && PeaceClass.ARTS?.[sc.draw] ? PeaceClass.artURL(sc.draw) : sc.src;
+    const okSrc = u => /^data:image\//i.test(String(u || ''));   // 파일 안에 담긴 사진만 보여 준다(밖의 주소 X)
+    const shown = sc.draw && PeaceClass.ARTS?.[sc.draw] ? PeaceClass.artURL(sc.draw) : (okSrc(sc.src) ? sc.src : '');
     if (shown) {
       const pic = h('div', { class: 'pic', title: '누르면 그 자리에 이름표가 생겨요', onclick: e => {
         e.stopPropagation(); const r = img.getBoundingClientRect();
@@ -284,7 +306,7 @@
     L.scenes.forEach((sc, i) => {
       const b = h('button', { class: 'pill', onclick: e => copy(sc.say || '', e.target) }, '복사');
       lines.append(h('div', { class: 'sayrow' }, h('b', {}, String(i + 1).padStart(2, '0')), h('span', {}, TYPES[sc.type]?.name || sc.type),
-        h('textarea', { rows: 2, placeholder: '이 장면에서 읽을 대본 (비우면 이 장면은 목소리 없음)', oninput: e => { setp(sc, 'say', e.target.value); store.set('peace-studio-draft', JSON.stringify(L)); } }, sc.say || ''), b));
+        h('textarea', { rows: 2, placeholder: '이 장면에서 읽을 대본 (비우면 이 장면은 목소리 없음)', oninput: e => { setp(sc, 'say', e.target.value); saveDraft(); } }, sc.say || ''), b));
     });
     // 4 받은 파일
     const res = h('div', { class: 'vst' });
@@ -342,7 +364,7 @@
         rec.start(); recBtn.textContent = '■ 멈추기'; recBtn.classList.add('rec'); st.textContent = '녹음 중…';
       } catch (err) { if (await modal(IN_ART ? '여기(Claude 화면 안)에서는 마이크를 쓸 수 없어요. 휴대폰 음성 메모나 PC 녹음기로 녹음한 파일을 넣어 주세요.' : '마이크를 쓸 수 없어요(' + err.name + '). 녹음한 파일을 넣어 주세요.', [['닫기', false, 'ghost'], ['녹음 파일 고르기', true, 'main']])) fin.click(); }
     } }, IN_ART ? '🎙 녹음 파일' : '🎙 녹음');
-    const say = h('textarea', { rows: 2, class: 'say', placeholder: '읽을 대본 (화면에는 안 나와요 · 녹음하거나 AI 목소리로 만들 때 읽을 글)', oninput: e => { setp(sc, 'say', e.target.value); store.set('peace-studio-draft', JSON.stringify(L)); } }, sc.say || '');
+    const say = h('textarea', { rows: 2, class: 'say', placeholder: '읽을 대본 (화면에는 안 나와요 · 녹음하거나 AI 목소리로 만들 때 읽을 글)', oninput: e => { setp(sc, 'say', e.target.value); saveDraft(); } }, sc.say || '');
     return h('div', { class: 'voice' }, say, h('span', { class: 'vl' }, '목소리'), recBtn,
       h('button', { onclick: e => { e.stopPropagation(); fin.click(); } }, '파일'),
       sc.voiceData ? h('button', { onclick: e => { e.stopPropagation(); new Audio(sc.voiceData).play(); } }, '▶ 듣기') : null,
@@ -351,7 +373,7 @@
 
   // ---------- 미리보기 ----------
   let timer = null;
-  function changed(now) { dirty++; store.set('peace-studio-draft', JSON.stringify(L)); clearTimeout(timer); timer = setTimeout(() => refresh(), now ? 0 : 450); }
+  function changed(now) { dirty++; saveDraft(); clearTimeout(timer); timer = setTimeout(() => refresh(), now ? 0 : 450); }
   async function refresh() {
     stop();
     const keep = inst ? t : null;
@@ -442,7 +464,7 @@
       const card = h('div', { class: 'fcard' + (i === cur ? ' on' : '') },
         h('button', { class: 'fpic', title: '이 장면 미리보기', onclick: () => { cur = i; markCur(); jumpTo(i); refreshGallery(); [...flow.children].forEach((c, j) => c.classList.toggle('on', j === i)); left.querySelectorAll('.s-scene')[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, holder),
         h('div', { class: 'fmeta' }, h('b', {}, `${i + 1} · ${TYPES[sc.type]?.name || sc.type}`), h('span', {}, `${Math.floor(at / 60)}:${String(Math.floor(at % 60)).padStart(2, '0')} · ${dur.toFixed(1)}초`), h('span', { class: 'vs' }, sc.voiceData ? '🔊 목소리' : '🔇 목소리 없음')),
-        h('textarea', { rows: 3, class: 'fsay', placeholder: '대사 (목소리로 읽을 글 · 목소리가 있으면 자막으로 나와요)', oninput: e => { sc.say = e.target.value; delete sc.cues; store.set('peace-studio-draft', JSON.stringify(L)); clearTimeout(timer); timer = setTimeout(() => { renderLeft(); refresh(); }, 900); } }, sc.say || ''),
+        h('textarea', { rows: 3, class: 'fsay', placeholder: '대사 (목소리로 읽을 글 · 목소리가 있으면 자막으로 나와요)', oninput: e => { sc.say = e.target.value; delete sc.cues; saveDraft(); clearTimeout(timer); timer = setTimeout(() => { renderLeft(); refresh(); }, 900); } }, sc.say || ''),
         subs.length ? h('div', { class: 'fsubs' }, subs.map(x => h('span', {}, x))) : null,
         changedSay ? h('div', { class: 'fwarn' }, '✎ 대사가 바뀌었어요 — 목소리는 예전 그대로예요. 시나리오를 저장해 Claude 에게 보내면 이 장면만 다시 읽혀요.') : null);
       flow.append(card);
@@ -497,7 +519,7 @@
     const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${(L.title || '수업').replace(/</g, '&lt;')}</title>
 <style>${A('a-katex-css')}</style><style>${A('a-style')}</style></head><body><div id="stage"></div>
 <script>${esc(A('a-katex'))}<\/script>
-<script>window.LESSON = ${esc(JSON.stringify(L))};<\/script>
+<script>window.LESSON = ${JSON.stringify(L).replace(/</g, '\\u003c')};<\/script>
 <script>${esc(A('a-runtime'))}<\/script></body></html>`;
     download(slug() + '_수업용.html', html, 'text/html');
   }

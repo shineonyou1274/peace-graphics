@@ -150,3 +150,6 @@ textarea { resize: vertical; }
 .st-row b { font-size: 17px; font-weight: 900; }
 .st-row .pill { background: #26262c; color: #f2f2ee; border: 1px solid #3a3a42; border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .st-card { transition: none; } }
+.fxbtn { width: 100%; text-align: left; border: 1px solid var(--s-line); background: #fff; border-radius: 10px; padding: 8px 10px; cursor: pointer; font-weight: 700; }
+.fxbtn:hover { border-color: #151518; }
+.st-row small { color: #a9a9b2; font-size: 12px; margin-left: 8px; text-align: right; }

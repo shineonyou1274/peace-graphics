@@ -90,6 +90,9 @@
     return { w: g.w, h: g.h, svg: `<svg xmlns="http://www.w3.org/2000/svg" ${V}>${(S[sid] || S.dark)().replace(/ag-/g, id)}</svg>` };
   };
   const ARTS = { leaf: '잎' }; let artN = 0;
+  // 장면 넘김 12가지 [id, 이름, 한 줄]
+  const TRANS = [['rise', '흐려지며 위로', '형광'], ['page', '지면 넘기기', '신문'], ['erase', '지우개로 지우기', '칠판'], ['flip', '공책 넘기기', '공책'], ['pop', '통통 튀기', '팝'], ['fade', '살며시', '모눈'],
+    ['wipe', '선 긋듯 밀기', '청사진'], ['ink', '먹 번지기', '먹'], ['paper', '색종이 붙였다 떼기', '종이 공작'], ['pixel', '블록 넘김', '픽셀'], ['cinema', '천천히 다가가기', '예고편'], ['zoom', '끝없는 줌', '점 속으로 빨려 들어감']];
 
   // 대사를 자막 토막으로: 문장 → 길면 쉼표 → 그래도 길면 띄어쓰기에서(한 토막 26자 안팎)
   const chunkSay = t => {
@@ -994,7 +997,7 @@
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
       s.root.style.display = on ? 'block' : 'none';
       if (!on) continue;
-      useStyle(s.STY); const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
+      useStyle(s.STY); const want = s.sc.trans || L.trans, TRK = TRANS.some(x => x[0] === want) ? want : STY.tr;   // 장면 넘김: 장면 · 수업 · 스타일 차례
       try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
       const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
@@ -1238,7 +1241,7 @@
     });
   }
 
-  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, chunkSay, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
+  window.PeaceClass = { mount, player, STYLES, TRANS, wav, wavBase64, ARTS, chunkSay, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
   // 수업용 파일 · 렌더용 페이지: LESSON 과 #stage 가 있으면 바로 띄운다
   const st = document.getElementById('stage');
   if (window.LESSON && st && !window.__NO_AUTO__) {

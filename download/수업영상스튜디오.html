@@ -437,6 +437,9 @@ textarea { resize: vertical; }
 .st-row b { font-size: 17px; font-weight: 900; }
 .st-row .pill { background: #26262c; color: #f2f2ee; border: 1px solid #3a3a42; border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .st-card { transition: none; } }
+.fxbtn { width: 100%; text-align: left; border: 1px solid var(--s-line); background: #fff; border-radius: 10px; padding: 8px 10px; cursor: pointer; font-weight: 700; }
+.fxbtn:hover { border-color: #151518; }
+.st-row small { color: #a9a9b2; font-size: 12px; margin-left: 8px; text-align: right; }
 </style>
 </head>
 <body>
@@ -535,6 +538,9 @@ textarea { resize: vertical; }
     return { w: g.w, h: g.h, svg: `<svg xmlns="http://www.w3.org/2000/svg" ${V}>${(S[sid] || S.dark)().replace(/ag-/g, id)}</svg>` };
   };
   const ARTS = { leaf: '잎' }; let artN = 0;
+  // 장면 넘김 12가지 [id, 이름, 한 줄]
+  const TRANS = [['rise', '흐려지며 위로', '형광'], ['page', '지면 넘기기', '신문'], ['erase', '지우개로 지우기', '칠판'], ['flip', '공책 넘기기', '공책'], ['pop', '통통 튀기', '팝'], ['fade', '살며시', '모눈'],
+    ['wipe', '선 긋듯 밀기', '청사진'], ['ink', '먹 번지기', '먹'], ['paper', '색종이 붙였다 떼기', '종이 공작'], ['pixel', '블록 넘김', '픽셀'], ['cinema', '천천히 다가가기', '예고편'], ['zoom', '끝없는 줌', '점 속으로 빨려 들어감']];
 
   // 대사를 자막 토막으로: 문장 → 길면 쉼표 → 그래도 길면 띄어쓰기에서(한 토막 26자 안팎)
   const chunkSay = t => {
@@ -1439,7 +1445,7 @@ textarea { resize: vertical; }
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
       s.root.style.display = on ? 'block' : 'none';
       if (!on) continue;
-      useStyle(s.STY); const TRK = L.trans === 'zoom' ? 'zoom' : STY.tr;
+      useStyle(s.STY); const want = s.sc.trans || L.trans, TRK = TRANS.some(x => x[0] === want) ? want : STY.tr;   // 장면 넘김: 장면 · 수업 · 스타일 차례
       try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
       const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
@@ -1683,7 +1689,7 @@ textarea { resize: vertical; }
     });
   }
 
-  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, chunkSay, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
+  window.PeaceClass = { mount, player, STYLES, TRANS, wav, wavBase64, ARTS, chunkSay, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
   // 수업용 파일 · 렌더용 페이지: LESSON 과 #stage 가 있으면 바로 띄운다
   const st = document.getElementById('stage');
   if (window.LESSON && st && !window.__NO_AUTO__) {
@@ -1798,8 +1804,8 @@ textarea { resize: vertical; }
         row('학년 · 단원', h('input', { value: L.unit || '', oninput: e => { L.unit = e.target.value; changed(); } })),
         row('소리', h('select', { onchange: e => { L.mood = e.target.value; changed(); } }, MOODS.map(([v, n]) => h('option', { value: v, selected: (L.mood || 'calm') === v }, n))))),
       h('div', { class: 'two' },
-        row('박자마다 쾅', h('select', { onchange: e => { L.beat = e.target.value; if (L.beat === 'auto') delete L.beat; changed(true); } }, [['auto', '스타일대로'], ['on', '켜기'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.beat || 'auto') === v }, n)))),
-        row('장면 넘김', h('select', { onchange: e => { L.trans = e.target.value; if (L.trans === 'style') delete L.trans; changed(true); } }, [['style', '스타일대로'], ['zoom', '끝없는 줌']].map(([v, n]) => h('option', { value: v, selected: (L.trans || 'style') === v }, n))))),
+        row('장면 넘김', h('button', { class: 'fxbtn', onclick: e => { e.preventDefault(); pickTrans(); } }, `🎬 ${transName(L.trans)} ▾`)),
+        row('박자마다 쾅', h('button', { class: 'fxbtn', onclick: e => { e.preventDefault(); pickBeat(); } }, `🥁 ${({ on: '켜기', off: '끄기' })[L.beat] || '스타일대로'} ▾`))),
       h('div', { class: 'two' },
         row('자막', h('select', { onchange: e => { if (e.target.value === 'off') L.subs = 'off'; else delete L.subs; changed(true); } }, [['on', '켜기 (목소리 있는 장면)'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.subs === 'off' ? 'off' : 'on') === v }, n))))));
     left.append(h('h3', { class: 'step' }, '2 · 시나리오 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), info);
@@ -2242,6 +2248,44 @@ textarea { resize: vertical; }
     const t0 = performance.now();
     const loop = now => { if (!alive) return; const T = (now - t0) / 1000; g.seek(Math.min(T, g.DUR - 0.01)); if (T < g.DUR + 0.8) requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
+  }
+  // ---------- 효과도 '움직이는 모습'을 보고 고른다 ----------
+  const transName = id => { const x = (PC.TRANS || []).find(y => y[0] === id); return x ? x[1] : '스타일대로'; };
+  // opts: [{id, name, sub, patch(lesson), win(inst) → [a, b] 되풀이할 구간}]
+  function fxPicker(title, lead, opts, curId, onPick) {
+    stop();
+    let alive = true; const live = [];
+    const close = () => { alive = false; box.remove(); };
+    const grid = h('div', { class: 'st-grid' });
+    const box = h('div', { class: 'starter' }, h('div', { class: 'st-in' },
+      h('div', { class: 'st-head' }, h('div', {}, h('h2', {}, title), h('p', {}, lead)), h('div', { class: 'st-acts' }, h('button', { class: 'ghost', onclick: close }, '닫기'))), grid));
+    document.body.append(box);
+    opts.forEach(o => {
+      const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
+      grid.append(h('div', { class: 'st-card' + (o.id === curId ? ' on' : '') },
+        h('button', { class: 'st-pic', onclick: () => { close(); onPick(o.id); } }, holder),
+        h('div', { class: 'st-row' }, h('b', {}, o.name), o.sub ? h('small', {}, o.sub) : null)));
+      try {
+        const one = previewLesson(L.style); o.patch(one);
+        const g = PC.mount(st, one); const k = holder.clientWidth / g.W; st.style.transform = `scale(${k})`; holder.style.height = g.H * k + 'px';
+        g.READY.then(() => live.push({ g, w: o.win(g) }));
+      } catch (e) { holder.textContent = '⚠'; }
+    });
+    const t0 = performance.now();
+    const loop = now => { if (!alive) return; const T = (now - t0) / 1000; live.forEach(({ g, w }) => g.seek(w[0] + T % (w[1] - w[0]))); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+  const edge = g => { const s1 = g.SCENES[1] || g.SCENES[0]; return [Math.max(0, s1.t0 - 1.0), Math.min(g.DUR - 0.01, s1.t0 + 1.6)]; };
+  function pickTrans() {
+    const opts = [{ id: '', name: '스타일대로', sub: `지금 스타일(${(PC.STYLES.find(x => x.id === L.style) || PC.STYLES[0]).name})에 맞춘 넘김`, patch: () => {}, win: edge },
+      ...(PC.TRANS || []).map(([id, name, sub]) => ({ id, name, sub, patch: one => { one.trans = id; }, win: edge }))];
+    fxPicker('장면이 어떻게 넘어갈까요?', '장면과 장면 사이를 움직이는 모습으로 보여 드려요 · 마음에 드는 칸을 누르세요', opts, L.trans || '', id => { if (id) L.trans = id; else delete L.trans; changed(true); renderLeft(); });
+  }
+  function pickBeat() {
+    const w = g => [0, Math.min(g.DUR - 0.01, Math.max(4, (g.SCENES[0] || {}).dur || 4) + 2)];
+    const opts = [['', '스타일대로', '형광 · 팝 · 픽셀 · 예고편만 켜짐'], ['on', '켜기', '배경음 박자마다 화면이 살짝 쾅'], ['off', '끄기', '차분하게 · 글 읽기에 집중']]
+      .map(([id, name, sub]) => ({ id, name, sub, patch: one => { if (id) one.beat = id; }, win: w }));
+    fxPicker('박자마다 쾅 할까요?', '배경음 박자에 맞춰 화면이 살짝 튀는 효과예요 · 움직임을 보고 골라 주세요', opts, L.beat || '', id => { if (id) L.beat = id; else delete L.beat; changed(true); renderLeft(); });
   }
   setTimeout(showStarter, 300);
 

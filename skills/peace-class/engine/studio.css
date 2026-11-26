@@ -122,3 +122,31 @@ textarea { resize: vertical; }
 .fcard .fsubs { display: flex; flex-wrap: wrap; gap: 4px; }
 .fcard .fsubs span { background: #222; color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 4px; }
 .fcard .fwarn { font-size: 12px; color: #a15c00; background: #fff4e0; border-radius: 6px; padding: 5px 7px; }
+/* 화면 안 묻기 · 알리기 (아티팩트에서는 alert · confirm 이 안 뜬다) */
+.ask { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 90; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ask > div { background: #fff; color: #151518; border-radius: 16px; max-width: 460px; width: 100%; padding: 20px 22px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.ask.big > div { max-width: 980px; }
+.ask h3 { margin: 0 0 10px; font-size: 18px; font-weight: 900; }
+.ask p { margin: 0 0 16px; font-size: 15px; line-height: 1.6; }
+.ask .btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+.ask .btns button { border-radius: 999px; padding: 8px 16px; cursor: pointer; border: 1px solid #d6d6dc; background: #fff; font-weight: 700; }
+.ask .btns .main { background: #151518; color: #fff; border-color: #151518; }
+.ask .thumb-stage { border-radius: 10px; }
+/* 처음 화면: 움직이는 스타일 11가지 */
+.starter { position: fixed; inset: 0; z-index: 80; background: #0e0e11; color: #f2f2ee; overflow: auto; }
+.st-in { max-width: 1400px; margin: 0 auto; padding: 22px max(16px, 2vw) 40px; }
+.st-head { display: flex; gap: 16px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
+.st-head h2 { margin: 0 0 6px; font-size: 26px; font-weight: 900; }
+.st-head p { margin: 0; color: #a9a9b2; font-size: 14px; }
+.st-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.st-acts .ghost { background: transparent; color: #f2f2ee; border: 1px solid #44444c; border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.st-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.st-card { background: #19191d; border: 1px solid #2a2a30; border-radius: 14px; padding: 8px; display: flex; flex-direction: column; gap: 8px; transition: transform .15s, border-color .15s; }
+.st-card:hover { transform: translateY(-2px); border-color: #d7ff00; }
+.st-card.on { border-color: #d7ff00; }
+.st-card .st-pic { padding: 0; border: 0; background: none; cursor: pointer; display: block; width: 100%; }
+.st-card .thumb-stage { border-radius: 9px; }
+.st-row { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 2px; }
+.st-row b { font-size: 17px; font-weight: 900; }
+.st-row .pill { background: #26262c; color: #f2f2ee; border: 1px solid #3a3a42; border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .st-card { transition: none; } }

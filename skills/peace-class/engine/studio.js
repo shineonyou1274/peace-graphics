@@ -17,6 +17,14 @@
   };
   const clone = o => JSON.parse(JSON.stringify(o));
   const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  // 아티팩트(claude.ai 안)에서는 alert · confirm 이 안 뜬다 → 화면 안에서 묻고 알린다
+  const IN_ART = !!(window.claude && typeof window.claude.use === 'function');
+  const modal = (msg, btns) => new Promise(res => {
+    const box = h('div', { class: 'ask' }, h('div', {}, h('p', {}, msg), h('div', { class: 'btns' }, btns.map(([label, v, cls]) => h('button', { class: cls || '', onclick: () => { box.remove(); res(v); } }, label)))));
+    document.body.append(box); box.querySelector('button:last-child')?.focus();
+  });
+  const uiAsk = (msg, yes = '네', no = '아니요') => modal(msg, [[no, false, 'ghost'], [yes, true, 'main']]);
+  const uiSay = msg => modal(msg, [['확인', true, 'main']]);
 
   // ---------- 장면 틀과 칸 ----------
   const TYPES = {
@@ -48,11 +56,11 @@
   // ---------- 화면 ----------
   const app = document.getElementById('app');
   const fileIn = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', onchange: e => loadFile(e.target.files[0]) });
-  const exSel = h('select', { class: 'ghost', onchange: e => { const ex = window.EXAMPLES[+e.target.value]; if (ex && confirm(`예시 "${ex.name}" 을(를) 불러올까요? 지금 고친 내용은 사라져요.`)) { L = clone(ex.lesson); L.style = L.style || L.theme || 'dark'; delete L.theme; cur = 0; renderAll(); } e.target.value = ''; } },
+  const exSel = h('select', { class: 'ghost', onchange: async e => { const ex = window.EXAMPLES[+e.target.value]; e.target.value = ''; if (ex && await uiAsk(`예시 "${ex.name}" 을(를) 불러올까요? 지금 고친 내용은 사라져요.`, '불러오기', '그만두기')) { L = clone(ex.lesson); L.style = L.style || L.theme || 'dark'; delete L.theme; cur = 0; renderAll(); } } },
     h('option', { value: '' }, '예시 불러오기'), ...(window.EXAMPLES || []).map((ex, i) => h('option', { value: i }, ex.name)));
   const bar = h('header', { class: 'top' },
     h('div', { class: 'brand' }, h('b', {}, '●'), ' 수업 영상 스튜디오'),
-    h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showHelp() }, '처음이세요? 쓰는 법'), h('button', { class: 'ghost', onclick: () => voiceAI() }, '🗣 내 목소리 AI'), exSel,
+    h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showStarter() }, '🎬 스타일 움직여 보기'), h('button', { class: 'ghost', onclick: () => showHelp() }, '처음이세요? 쓰는 법'), h('button', { class: 'ghost', onclick: () => voiceAI() }, '🗣 내 목소리 AI'), exSel,
       h('button', { class: 'ghost', onclick: () => fileIn.click() }, '시나리오 열기'),
       h('button', { class: 'ghost', onclick: saveJSON }, '시나리오 저장'),
       h('button', { class: 'main', onclick: exportHTML }, '수업용 파일 저장 ↓')), fileIn);
@@ -74,7 +82,7 @@
     h('label', {}, h('input', { type: 'radio', name: 'scope', onchange: () => { onlyScene = true; refreshGallery(); } }), ' 지금 장면에만'),
     h('button', { class: 'linkbtn', onclick: () => { L.scenes.forEach(x => delete x.style); changed(true); renderLeft(); refreshGallery(); } }, '장면별 스타일 모두 지우기'));
   right.append(
-    h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '지금 고른 장면이 스타일마다 어떻게 보이는지 · 장면마다 다르게 해도 돼요')), scopeBox, gallery),
+    h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '그림 위에 마우스를 올리면 움직여요 · 장면마다 다르게 해도 돼요')), scopeBox, gallery),
     h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox),
     h('section', {}, h('h3', {}, '4 · 흐름 보기 ', h('small', {}, '장면 순서대로 한눈에 · 그림을 누르면 미리보기로 · 아래 칸에서 대사 · 자막을 바로 고쳐요')), flow));
 
@@ -113,7 +121,7 @@
         h('button', { title: '위로', onclick: e => { e.stopPropagation(); move(i, -1); } }, '↑'),
         h('button', { title: '아래로', onclick: e => { e.stopPropagation(); move(i, 1); } }, '↓'),
         h('button', { title: '복제', onclick: e => { e.stopPropagation(); L.scenes.splice(i + 1, 0, clone(sc)); cur = i + 1; renderAll(); } }, '⧉'),
-        h('button', { title: '지우기', onclick: e => { e.stopPropagation(); if (L.scenes.length > 1 && confirm(`${i + 1}번 장면(${T.name})을 지울까요?`)) { L.scenes.splice(i, 1); cur = Math.min(cur, L.scenes.length - 1); renderAll(); } } }, '✕'))));
+        h('button', { title: '지우기', onclick: async e => { e.stopPropagation(); if (L.scenes.length > 1 && await uiAsk(`${i + 1}번 장면(${T.name})을 지울까요?`, '지우기', '그만두기')) { L.scenes.splice(i, 1); cur = Math.min(cur, L.scenes.length - 1); renderAll(); } } }, '✕'))));
     card.append(row('이 장면 스타일', h('select', { class: 'stsel', onchange: e => { if (e.target.value) sc.style = e.target.value; else delete sc.style; changed(true); markCur(); refreshGallery(); } },
       h('option', { value: '' }, `수업 스타일대로 (${(PC.STYLES.find(x => x.id === (L.style || 'dark')) || PC.STYLES[0]).name})`), ...PC.STYLES.map(x => h('option', { value: x.id, selected: sc.style === x.id }, x.name)))));
     T.fields.forEach(([path, label, kind, extra, keys]) => card.append(field(sc, path, label, kind, extra, keys)));
@@ -179,7 +187,7 @@
     fr.onerror = () => rej(fr.error); fr.readAsDataURL(file);
   });
   function photoField(sc, label) {
-    const take = async f => { if (!f || !/^image\//.test(f.type)) return alert('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); delete sc.draw; changed(true); renderLeft(); } catch (e) { alert(e.message); } };
+    const take = async f => { if (!f || !/^image\//.test(f.type)) return uiSay('사진 파일(jpg · png)을 넣어 주세요.'); try { sc.src = await shrink(f); delete sc.draw; changed(true); renderLeft(); } catch (e) { uiSay(e.message); } };
     const fin = h('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: e => take(e.target.files[0]) });
     const wrap = h('div', { class: 'photo-f' });
     const shown = sc.draw && PeaceClass.ARTS?.[sc.draw] ? PeaceClass.artURL(sc.draw) : sc.src;
@@ -238,7 +246,7 @@
           catch (e) { sst.textContent = '녹음을 읽지 못했어요. 다시 해 주세요.'; }
         };
         rec.start(); sBtn.textContent = '■ 멈추기'; sBtn.classList.add('rec'); sst.textContent = '녹음 중… 아래 글을 읽어 주세요';
-      } catch (err) { alert('마이크를 쓸 수 없어요. 휴대폰으로 녹음한 파일을 Qwen 에 바로 올려도 돼요. (' + err.name + ')'); }
+      } catch (err) { uiSay(IN_ART ? '여기(Claude 화면 안)에서는 마이크를 쓸 수 없어요. 휴대폰 음성 메모나 PC 녹음기로 10초 녹음한 파일을 Qwen 에 바로 올리면 돼요.' : '마이크를 쓸 수 없어요. 휴대폰으로 녹음한 파일을 Qwen 에 바로 올려도 돼요. (' + err.name + ')'); }
     } }, '🎙 샘플 녹음');
     const playS = h('button', { class: 'pill', disabled: true, onclick: () => new Audio(URL.createObjectURL(new Blob([sample], { type: 'audio/wav' }))).play() }, '▶ 듣기');
     const saveS = h('button', { class: 'pill', disabled: true, onclick: () => download('내목소리_샘플.wav', sample, 'audio/wav') }, '샘플 저장 (.wav)');
@@ -294,17 +302,18 @@
     const st = h('span', { class: 'vst' }, sc.voiceData ? `녹음 ${sc.voiceDur.toFixed(1)}초 ✓` : '녹음 없음');
     const fin = h('input', { type: 'file', accept: 'audio/*', style: 'display:none', onchange: e => e.target.files[0] && takeBlob(e.target.files[0]) });
     let rec = null;
-    const takeBlob = async blob => { if (await voiceFromBlob(sc, blob)) { st.textContent = `녹음 ${sc.voiceDur.toFixed(1)}초 ✓`; changed(true); } else alert('이 소리 파일을 읽지 못했어요. mp3 · wav · m4a 로 다시 넣어 주세요.'); };
-    const recBtn = h('button', { onclick: async e => {
+    const takeBlob = async blob => { if (await voiceFromBlob(sc, blob)) { st.textContent = `녹음 ${sc.voiceDur.toFixed(1)}초 ✓`; changed(true); } else uiSay('이 소리 파일을 읽지 못했어요. mp3 · wav · m4a 로 다시 넣어 주세요.'); };
+    const recBtn = h('button', { title: IN_ART ? '여기서는 마이크를 쓸 수 없어 녹음한 파일을 넣어요 (휴대폰 음성 메모 · PC 녹음기)' : '', onclick: async e => {
       e.stopPropagation();
+      if (IN_ART) { fin.click(); return; }
       if (rec) { if (rec.state === 'recording' && !recBtn.dataset.ending) { recBtn.dataset.ending = 1; recBtn.textContent = '마무리 중…'; setTimeout(() => { delete recBtn.dataset.ending; rec && rec.stop(); }, 700); } return; }   // 끝 글자가 씹히지 않게 0.7초 더
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const chunks = [];
         rec = new MediaRecorder(stream); rec.ondataavailable = ev => chunks.push(ev.data);
         rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); rec = null; recBtn.textContent = '🎙 녹음'; recBtn.classList.remove('rec'); takeBlob(new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' })); };
         rec.start(); recBtn.textContent = '■ 멈추기'; recBtn.classList.add('rec'); st.textContent = '녹음 중…';
-      } catch (err) { alert('마이크를 쓸 수 없어요. 파일로 넣어 주세요. (' + err.name + ')'); }
-    } }, '🎙 녹음');
+      } catch (err) { if (await modal(IN_ART ? '여기(Claude 화면 안)에서는 마이크를 쓸 수 없어요. 휴대폰 음성 메모나 PC 녹음기로 녹음한 파일을 넣어 주세요.' : '마이크를 쓸 수 없어요(' + err.name + '). 녹음한 파일을 넣어 주세요.', [['닫기', false, 'ghost'], ['녹음 파일 고르기', true, 'main']])) fin.click(); }
+    } }, IN_ART ? '🎙 녹음 파일' : '🎙 녹음');
     const say = h('textarea', { rows: 2, class: 'say', placeholder: '읽을 대본 (화면에는 안 나와요 · 녹음하거나 AI 목소리로 만들 때 읽을 글)', oninput: e => { setp(sc, 'say', e.target.value); store.set('peace-studio-draft', JSON.stringify(L)); } }, sc.say || '');
     return h('div', { class: 'voice' }, say, h('span', { class: 'vl' }, '목소리'), recBtn,
       h('button', { onclick: e => { e.stopPropagation(); fin.click(); } }, '파일'),
@@ -381,7 +390,12 @@
       try {
         const g = PC.mount(st, { ...one, style: S.id });
         const k = Math.min(holder.clientWidth / g.W, 170 / g.H); st.style.transform = `scale(${k})`; st.style.left = (holder.clientWidth - g.W * k) / 2 + 'px'; holder.style.height = g.H * k + 'px';
-        g.READY.then(() => g.seek(g.SCENES[0].dur - 0.55));
+        g.READY.then(() => {
+          g.seek(g.SCENES[0].dur - 0.55);
+          let on = false, t0 = 0; const loop = now => { if (!on) return; g.seek(((now - t0) / 1000) % g.SCENES[0].dur); requestAnimationFrame(loop); };
+          card.addEventListener('mouseenter', () => { on = true; t0 = performance.now(); requestAnimationFrame(loop); });   // 올려 두면 움직인다
+          card.addEventListener('mouseleave', () => { on = false; g.seek(g.SCENES[0].dur - 0.55); });
+        });
       } catch (e) { holder.textContent = '⚠'; }
     }
   }
@@ -418,6 +432,20 @@
   // 저장: 크롬 · 엣지 · 웨일은 "다른 이름으로 저장" 창(한글 이름 그대로), 나머지는 내려받기
   const download = async (name, text, type) => {
     const blob = new Blob([text], { type });
+    if (IN_ART) {   // Claude 화면 안: 저장은 '내려받기' 기능으로(선생님이 한 번 확인)
+      const dl = await window.claude.use('downloads').catch(() => null);
+      if (!dl) return uiSay('여기서는 파일을 저장할 수 없어요. 이 스튜디오 파일을 내려받아 크롬 · 엣지 · 웨일로 열어 저장해 주세요.');
+      try { const r = await dl.save({ filename: name, data: blob }); if (r && r.status === 'saved') toast(`저장했어요 · ${name}`); }
+      catch (e) {
+        const c = e && e.code;
+        if (c === 'declined') return;
+        if (c === 'rejected_extension' || c === 'extension_not_enabled') return uiSay('이 종류의 파일은 여기서 저장할 수 없어요. 내려받은 스튜디오 파일에서 저장해 주세요.');
+        if (c === 'rate_limited') return uiSay('저장 창이 이미 열려 있어요. 잠시 뒤에 다시 눌러 주세요.');
+        if (c === 'host_unavailable') return uiSay('이 앱에서는 저장할 수 없어요. 브라우저나 컴퓨터에서 열어 저장해 주세요.');
+        uiSay('저장하지 못했어요. 잠시 뒤 다시 해 보거나, 스튜디오 파일을 내려받아 저장해 주세요.');
+      }
+      return;
+    }
     if (window.showSaveFilePicker) {
       try {
         const ext = name.slice(name.lastIndexOf('.'));
@@ -432,7 +460,7 @@
   function saveJSON() { download(slug() + '_시나리오.json', JSON.stringify(L, null, 2), 'application/json'); }
   function loadFile(f) {
     if (!f) return; const fr = new FileReader();
-    fr.onload = () => { try { const o = JSON.parse(fr.result); if (!o.scenes) throw new Error('scenes 없음'); L = o; L.style = L.style || L.theme || 'dark'; delete L.theme; cur = 0; renderAll(); } catch (e) { alert('시나리오 파일이 아니에요: ' + e.message); } };
+    fr.onload = () => { try { const o = JSON.parse(fr.result); if (!o.scenes) throw new Error('scenes 없음'); L = o; L.style = L.style || L.theme || 'dark'; delete L.theme; cur = 0; renderAll(); } catch (e) { uiSay('시나리오 파일이 아니에요: ' + e.message); } };
     fr.readAsText(f); fileIn.value = '';
   }
   function exportHTML() {
@@ -469,7 +497,57 @@
       h('ul', {}, li('윈도우: 수업용 파일을 열고 F(전체 화면) → Win + Alt + R 로 녹화 시작, 끝나면 다시 Win + Alt + R. 소리도 함께 녹화돼요(동영상 폴더 → 캡처).', '맥: 화면 기록(⌘ + Shift + 5)은 소리가 함께 녹화되지 않아요. Claude 에게 시나리오 파일을 주고 mp4 를 부탁하세요.'))));
     document.body.append(box);
   }
-  if (!store.get('peace-studio-helped')) { store.set('peace-studio-helped', '1'); setTimeout(showHelp, 400); }
+  // ---------- 처음 화면: 스타일을 설명이 아니라 '움직이는 모습'으로 보고 고른다 ----------
+  function previewLesson(id) {
+    const one = clone(L); one.style = id;
+    one.scenes = one.scenes.slice(0, 3).map(x => { const y = clone(x); delete y.style; delete y.voiceData; delete y.voiceDur; delete y.cues; return y; });
+    return one;
+  }
+  function showStarter() {
+    stop();
+    let alive = true; const live = [];
+    const close = () => { alive = false; box.remove(); };
+    const pick = id => { L.style = id; close(); changed(true); renderLeft(); refreshGallery(); toast(`${PC.STYLES.find(x => x.id === id).name} 스타일로 시작해요`); };
+    const grid = h('div', { class: 'st-grid' });
+    const box = h('div', { class: 'starter' }, h('div', { class: 'st-in' },
+      h('div', { class: 'st-head' }, h('div', {}, h('h2', {}, '어떤 느낌으로 만들까요?'), h('p', {}, '설명 말고 움직이는 모습을 보고 골라 주세요. 지금 수업의 첫 장면들로 보여 드려요 · 마음에 드는 칸을 누르면 바로 시작해요')),
+        h('div', { class: 'st-acts' }, h('button', { class: 'ghost', onclick: () => { close(); showHelp(); } }, '처음이세요? 쓰는 법'), h('button', { class: 'ghost', onclick: close }, `지금 스타일(${(PC.STYLES.find(x => x.id === L.style) || PC.STYLES[0]).name})로 시작`))),
+      grid));
+    document.body.append(box);
+    PC.STYLES.forEach((S, j) => {
+      const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
+      const card = h('div', { class: 'st-card' + (L.style === S.id ? ' on' : '') },
+        h('button', { class: 'st-pic', title: '이 스타일로 시작', onclick: () => pick(S.id) }, holder),
+        h('div', { class: 'st-row' }, h('b', {}, S.name), h('button', { class: 'pill', title: '크게 · 소리와 함께', onclick: () => bigView(S.id, pick) }, '🔊 크게 보기')));
+      grid.append(card);
+      try {
+        const g = PC.mount(st, previewLesson(S.id));
+        const k = holder.clientWidth / g.W; st.style.transform = `scale(${k})`; holder.style.height = g.H * k + 'px';
+        g.READY.then(() => live.push({ g, off: j * 0.37 }));
+      } catch (e) { holder.textContent = '⚠'; }
+    });
+    const t0 = performance.now();
+    const loop = now => { if (!alive) return; const T = (now - t0) / 1000; live.forEach(({ g, off }) => g.seek((T + off) % g.DUR)); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+  // 크게 보기: 한 스타일을 크게, 소리와 함께 한 바퀴
+  async function bigView(id, pick) {
+    const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
+    let alive = true, a = null, sn = null;
+    const close = () => { alive = false; try { sn && sn.stop(); } catch (e) {} box.remove(); };
+    const S = PC.STYLES.find(x => x.id === id);
+    const box = h('div', { class: 'ask big' }, h('div', {}, h('h3', {}, S.name), holder,
+      h('div', { class: 'btns' }, h('button', { class: 'ghost', onclick: close }, '다른 것 보기'), h('button', { class: 'main', onclick: () => { close(); pick(id); } }, '이 스타일로 하기'))));
+    document.body.append(box);
+    const g = PC.mount(st, previewLesson(id));
+    const k = holder.clientWidth / g.W; st.style.transform = `scale(${k})`; holder.style.height = g.H * k + 'px';
+    await g.READY;
+    try { const b = await g.audio(); if (!alive) return; a = ac = ac || new (window.AudioContext || window.webkitAudioContext)(); sn = a.createBufferSource(); sn.buffer = b; sn.connect(a.destination); sn.start(); } catch (e) {}
+    const t0 = performance.now();
+    const loop = now => { if (!alive) return; const T = (now - t0) / 1000; g.seek(Math.min(T, g.DUR - 0.01)); if (T < g.DUR + 0.8) requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+  setTimeout(showStarter, 300);
 
   // 지난 작업이 있으면 알려 준다
   const draft = store.get('peace-studio-draft');

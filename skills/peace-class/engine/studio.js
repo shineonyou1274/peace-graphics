@@ -59,7 +59,7 @@
   const exSel = h('select', { class: 'ghost', onchange: async e => { const ex = window.EXAMPLES[+e.target.value]; e.target.value = ''; if (ex && await uiAsk(`예시 "${ex.name}" 을(를) 불러올까요? 지금 고친 내용은 사라져요.`, '불러오기', '그만두기')) { L = clone(ex.lesson); L.style = L.style || L.theme || 'dark'; delete L.theme; cur = 0; renderAll(); } } },
     h('option', { value: '' }, '예시 불러오기'), ...(window.EXAMPLES || []).map((ex, i) => h('option', { value: i }, ex.name)));
   const bar = h('header', { class: 'top' },
-    h('div', { class: 'brand' }, h('b', {}, '●'), ' 수업 영상 스튜디오'),
+    h('div', { class: 'brand' }, h('b', {}, '●'), ' 수업 영상 스튜디오', h('a', { class: 'by', href: 'https://github.com/shineonyou1274/peace-graphics', target: '_blank', rel: 'noopener', title: '만든 사람 · 안내서' }, 'by shiny-peace')),
     h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showHelp() }, '쓰는 법'), exSel,
       h('button', { class: 'ghost', onclick: () => fileIn.click() }, '시나리오 열기')), fileIn);
   // 단계: 한 번에 한 가지만 — ① 스타일 · 효과 → ② 글 · 목소리 → ③ 흐름 보기 → ④ 저장
@@ -130,7 +130,8 @@
         row('학년 · 단원', h('input', { value: L.unit || '', oninput: e => { L.unit = e.target.value; changed(); } })),
         row('소리', h('select', { onchange: e => { L.mood = e.target.value; changed(); } }, MOODS.map(([v, n]) => h('option', { value: v, selected: (L.mood || 'calm') === v }, n))))),
       h('div', { class: 'two' },
-        row('자막', h('select', { onchange: e => { if (e.target.value === 'off') L.subs = 'off'; else delete L.subs; changed(true); } }, [['on', '켜기 (목소리 있는 장면)'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.subs === 'off' ? 'off' : 'on') === v }, n))))));
+        row('자막', h('select', { onchange: e => { if (e.target.value === 'off') L.subs = 'off'; else delete L.subs; changed(true); } }, [['on', '켜기 (목소리 있는 장면)'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.subs === 'off' ? 'off' : 'on') === v }, n)))),
+        row('영상 왼쪽 아래 이름', h('input', { value: L.brand || '', placeholder: 'PEACE CLASS (예: 3학년 2반 · 내 채널 이름)', oninput: e => { L.brand = e.target.value; if (!L.brand.trim()) delete L.brand; changed(); } }))));
     left.append(h('div', { class: 'lefthead' }, h('h3', { class: 'step' }, '글 · 목소리 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), h('button', { class: 'pill', onclick: () => voiceAI() }, '🗣 내 목소리 AI')), info);
     renderFx();
     L.scenes.forEach((sc, i) => left.append(sceneCard(sc, i)));

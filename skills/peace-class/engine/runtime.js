@@ -1218,7 +1218,7 @@
     inst.audio().then(b => { buf = b; }).catch(e => console.warn('소리를 만들지 못함', e));
     const hint = document.createElement('div'); document.body.appendChild(hint);
     Object.assign(hint.style, { position: 'fixed', left: '50%', bottom: '4vh', transform: 'translateX(-50%)', padding: '10px 18px', borderRadius: '999px', background: 'rgba(0,0,0,.72)', color: '#fff', font: "500 15px 'KR', sans-serif", transition: 'opacity .4s', zIndex: 9, whiteSpace: 'nowrap' });
-    hint.textContent = '▶ 클릭 · 스페이스 = 재생   → ← 장면 넘기기   F 전체 화면';
+    hint.textContent = '▶ 클릭 · 스페이스 = 재생   → ← 장면 넘기기   F 전체 화면   ·   made with Peace Graphics by shiny-peace';
     const starts = SCENES.map(s => s.t0);
     const stopA = () => { if (src) { try { src.stop(); } catch (e) {} src = null; } };
     const startA = () => { stopA(); if (!buf) return; ac = ac || new (window.AudioContext || window.webkitAudioContext)(); src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start(0, t); };

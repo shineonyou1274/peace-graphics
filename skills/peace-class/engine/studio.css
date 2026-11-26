@@ -186,3 +186,5 @@ textarea { resize: vertical; }
 .lefthead h3 small { display: block; margin: 2px 0 0; }
 .lefthead .pill { white-space: nowrap; flex: none; }
 .body[data-step="4"] .sec-pv { display: none; }
+.top .brand .by { margin-left: 10px; font-size: 12px; font-weight: 700; color: #a9a9b2; text-decoration: none; letter-spacing: .04em; border: 1px solid #3a3a42; border-radius: 999px; padding: 2px 9px; vertical-align: 2px; }
+.top .brand .by:hover { color: #d7ff00; border-color: #d7ff00; }

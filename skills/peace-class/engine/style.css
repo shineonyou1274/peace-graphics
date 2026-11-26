@@ -258,3 +258,10 @@ svg { overflow: visible; }
 .photo .pinlab { position: absolute; left: 0; top: calc(var(--u) * 1.6); white-space: nowrap; background: var(--acc); color: #111; font-weight: 900; font-size: calc(var(--u) * 2.6); padding: .15em .55em; border-radius: .4em; box-shadow: 0 .2em .6em rgba(0,0,0,.3); }
 .pc-light .photo .pinlab { color: #fff; }
 .theme-board .photo .pinlab, .theme-night .photo .pinlab { color: #111; }
+/* 모아 보기: 스타일마다 한 칸 */
+.gcell { overflow: hidden; border-radius: calc(var(--u) * 1); background: var(--bg); box-shadow: 0 calc(var(--u) * .4) calc(var(--u) * 1.4) rgba(0,0,0,.35); outline: 1px solid rgba(128,128,128,.25); transform-origin: 50% 50%; }
+.gcell.gphoto { background: #fff; outline: calc(var(--u) * .3) solid var(--acc); }
+.gcell .glab { position: absolute; left: calc(var(--u) * .9); top: calc(var(--u) * .8); font-size: calc(var(--u) * 2.5); font-weight: 900; color: var(--ink); background: color-mix(in srgb, var(--bg) 80%, transparent); padding: .1em .5em; border-radius: .4em; z-index: 2; }
+.gcell.gphoto .glab { background: var(--acc); color: #111; }
+.r916 .gcell .glab { font-size: calc(var(--u) * 2.6); }
+.theme-pixel.gcell { border-radius: 0; }

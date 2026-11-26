@@ -86,9 +86,10 @@
       cinema: () => `<defs><radialGradient id="ag-cine" cx="62%" cy="28%" r="80%"><stop offset="0" stop-color="#c9f27a"/><stop offset=".45" stop-color="#3c8d2f"/><stop offset="1" stop-color="#0a2a12"/></radialGradient><filter id="ag-rim"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
         + `<path class="fl" d="${g.out}" fill="url(#ag-cine)"/><g opacity=".55">${lines('#eaffc2', 0, 2.4, 1.1)}</g><g filter="url(#ag-rim)">${P(g.out, `class="dw" fill="none" stroke="${acc}" stroke-width="3"`)}${P(g.stem, `class="dw" fill="none" stroke="${acc}" stroke-width="5" stroke-linecap="round"`)}</g>`,
     };
-    return { w: g.w, h: g.h, svg: `<svg xmlns="http://www.w3.org/2000/svg" ${V}>${(S[sid] || S.dark)()}</svg>` };
+    const id = 'ag' + (++artN) + '-';   // 그림마다 이름(id)을 따로 — 같은 이름이면 숨은 장면의 것을 잘못 끌어다 쓴다
+    return { w: g.w, h: g.h, svg: `<svg xmlns="http://www.w3.org/2000/svg" ${V}>${(S[sid] || S.dark)().replace(/ag-/g, id)}</svg>` };
   };
-  const ARTS = { leaf: '잎' };
+  const ARTS = { leaf: '잎' }; let artN = 0;
 
   function mount(stage, L, opt = {}) {
   const R = L.ratio === '9:16';
@@ -97,7 +98,7 @@
   const S = R ? { x: 60, y: 300, w: 820, h: 1140 } : { x: 0.075 * W, y: 0.14 * H, w: 0.85 * W, h: 0.72 * H };
   // 장면마다 스타일을 따로 고를 수 있다(sc.style). 지금 보이는 장면의 스타일로 무대 전체(바탕 · 점 · 틀 · 장식)가 바뀐다
   const STY0 = styleOf(L), styleOfScene = sc => (sc && sc.style && STYLES.find(x => x.id === sc.style)) || STY0;
-  const USED = new Set([STY0.id, ...L.scenes.map(sc => styleOfScene(sc).id)]);
+  const USED = new Set([STY0.id, ...L.scenes.map(sc => styleOfScene(sc).id), ...L.scenes.filter(sc => sc.type === 'gallery').flatMap(sc => sc.styles && sc.styles.length ? sc.styles : STYLES.map(x => x.id))]);
   let STY = STY0, ACC = L.accent || STY0.acc(L.subject);
   const useStyle = sty => { STY = sty; ACC = L.accent || sty.acc(L.subject); };
   const BAD = '#ff4d5e';
@@ -746,6 +747,65 @@
     };
   };
 
+  // 13) 모아 보기: 같은 그림을 스타일마다 한 칸씩 — 창이 하나씩 열리며 격자로 깔린다(사진이 있으면 첫 칸)
+  // sc.draw(그림 · 기본 leaf) · sc.styles(스타일 id 목록 · 기본 전부) · sc.src(진짜 사진 · 첫 칸) · sc.title(위 작은 글) · sc.note(아래 한 줄)
+  T.gallery = (sc, root) => {
+    const name = ART[sc.draw] ? sc.draw : 'leaf';
+    const ids = (sc.styles && sc.styles.length ? sc.styles : STYLES.map(s => s.id)).filter(id => STYLES.some(s => s.id === id));
+    const items = [...(sc.src ? [{ photo: sc.src, label: sc.photoLabel || '진짜' }] : []), ...ids.map(id => ({ sty: STYLES.find(s => s.id === id) }))];
+    const n = items.length, cols = R ? 3 : (n <= 6 ? 3 : 4), rows = Math.ceil(n / cols);
+    const G = R ? S : { x: S.x, y: S.y - 2.5 * U, w: S.w, h: S.h + 5 * U };   // 모아 보기는 화면을 넓게 쓴다
+    const top = sc.title ? (R ? 7 : 4.6) * U : 0, bot = sc.note ? (R ? 9 : 6.4) * U : 0, gap = (R ? 2 : 1.2) * U;
+    const aw = G.w, ah = G.h - top - bot;
+    let cw = (aw - gap * (cols - 1)) / cols, ch = Math.min((ah - gap * (rows - 1)) / rows, cw * (R ? 1.1 : 0.75));
+    const gx = G.x + (aw - (cw * cols + gap * (cols - 1))) / 2, gy = G.y + top + (ah - (ch * rows + gap * (rows - 1))) / 2;
+    let kick = null, note = null;
+    if (sc.title) { kick = el('div', 'abs kicker qa', root, sc.title); place(kick, G.x, G.y, G.w); css(kick, { textAlign: 'center' }); TEXTS.push(sc.title); }
+    if (sc.note) { note = el('div', 'abs pen qa', root, sc.note); place(note, G.x, G.y + G.h - bot + 1.2 * U, G.w); css(note, { textAlign: 'center', fontSize: px((R ? 5.5 : 4.2) * U) }); TEXTS.push(sc.note); }
+    const step = Math.min(0.32, 3.2 / n), t0 = 0.35;
+    const cells = items.map((it, j) => {
+      const c = el('div', 'abs gcell' + (it.sty ? ` theme-${it.sty.id}${it.sty.light ? ' pc-light' : ''}` : ' gphoto'), root);
+      place(c, gx + (j % cols) * (cw + gap), gy + Math.floor(j / cols) * (ch + gap), cw, ch);
+      let art;
+      if (it.photo) { art = el('img', null, c); art.src = it.photo; css(art, { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }); }
+      else {
+        const acc = it.sty.acc(L.subject), A = artSVG(name, it.sty.id, acc); c.style.setProperty('--acc', acc);
+        if (it.sty.id === 'pixel') { art = el('img', null, c); art.dataset.pix = '1'; art.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(A.svg); css(art, { width: '100%', height: '100%', display: 'block', objectFit: 'contain', imageRendering: 'pixelated' }); }
+        else { art = el('div', null, c); art.innerHTML = A.svg; css(art, { position: 'absolute', inset: '7% 4% 5%' }); }
+      }
+      const lb = el('div', 'glab', c, it.label || it.sty.name); TEXTS.push(lb.textContent);
+      return { c, art, at: t0 + j * step };
+    });
+    const tAll = t0 + (n - 1) * step + 0.5, tNote = tAll + 0.3;
+    const dur = sc.dur || Math.max(5.5, tNote + 3.2);
+    const ctr = j => { const b = cells[j].c; return { x: gx + (j % cols) * (cw + gap) + cw * .92, y: gy + Math.floor(j / cols) * (ch + gap) + ch * .1 }; };
+    return {
+      dur, hits: [...cells.map(c => [c.at, 'pop']), ...(note ? [[tNote, 'write']] : [])],
+      async prepare() {
+        for (const { art } of cells) {
+          if (art.tagName !== 'IMG') continue;
+          if (!art.complete) await new Promise(r => { art.onload = art.onerror = r; });
+          if (art.dataset.pix && art.naturalWidth) {
+            const cw2 = 64, ch2 = Math.round(cw2 * ch / cw), cv = document.createElement('canvas'); cv.width = cw2; cv.height = ch2;
+            const g = cv.getContext('2d'); g.fillStyle = '#1d1b2e'; g.fillRect(0, 0, cw2, ch2); const k = Math.min(cw2 * .92 / 650, ch2 * .88 / 540); g.drawImage(art, (cw2 - 650 * k) / 2, (ch2 - 540 * k) / 2 + ch2 * .02, 650 * k, 540 * k);
+            await new Promise(r => { art.onload = r; art.src = cv.toDataURL(); });
+          }
+        }
+      },
+      measure() { this.dotIn = { x: gx - 2 * U, y: gy + ch * .1 }; this.dotOut = ctr(n - 1); },
+      update(lt) {
+        if (kick) kick.style.opacity = eo(p(lt, 0.1, 0.5));
+        cells.forEach(({ c, at }) => { const k = p(lt, at, at + 0.45); c.style.opacity = k > 0 ? Math.min(1, k * 3) : 0; c.style.transform = `scale(${(0.7 + 0.3 * back(k)).toFixed(4)})`; });
+        if (note) wipe(note, eio(p(lt, tNote, tNote + 1.0)));
+      },
+      dotAt(lt) {
+        let q = this.dotIn;
+        for (let j = 0; j < n; j++) { const a = cells[j].at; if (lt >= a - step) q = arc(j ? ctr(j - 1) : this.dotIn, ctr(j), eio(p(lt, a - step, a)), 2.5 * U); }
+        return { ...q, s: 1 };
+      },
+    };
+  };
+
   // 12) 한글 자모 조립: 자모가 날아와 글자가 되고, 획 하나(자모 하나)가 바뀌면 뜻이 바뀐다
   const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ', JONG = ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
   const split = ch => { const c = ch.charCodeAt(0) - 0xAC00; if (c < 0 || c > 11171) return null; return [CHO[Math.floor(c / 588)], JUNG[Math.floor((c % 588) / 28)], JONG[c % 28]]; };
@@ -940,7 +1000,7 @@
   const placeRight = (e, y) => css(e, { left: 'auto', right: px(W - S.x - S.w), top: px(y) });   // 스타일마다 글꼴 너비가 달라 오른쪽에 붙인다
 
   // 겹침 · 넘침 점검: 장면마다 다 나온 순간을 보고, 안전 영역을 넘거나 글 덩어리가 겹치면 알린다
-  const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', hangul: '한글 조립', end: '마무리' };
+  const KN = { title: '제목', concept: '개념', steps: '수식 · 풀이', graph: '함수 그래프', bars: '막대그래프', timeline: '연표', compare: '둘 비교', fix: '흔한 실수', process: '과정', photo: '사진', gallery: '모아 보기', hangul: '한글 조립', end: '마무리' };
   const QA = () => {
     const out = []; qaMode = true;
     for (const s of scenes) {

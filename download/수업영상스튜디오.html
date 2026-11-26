@@ -105,7 +105,7 @@ svg { overflow: visible; }
 .theme-light .c-title, .theme-light .c-end { align-items: flex-start !important; text-align: left !important; }
 .theme-light .c-title .big { border-top: calc(var(--u) * .9) solid var(--ink); padding-top: .12em; }
 .theme-light .c-cmp { border-top: calc(var(--u) * .5) solid var(--ink); }
-.theme-light .key .bar, .theme-light .hl::before { top: auto; bottom: -.06em; height: .13em; inset: auto -.04em -.06em -.04em; background: var(--acc); opacity: 1; border-radius: 0; }
+.theme-light .key .bar, .theme-light .hl::before { top: auto; bottom: -.22em; height: .12em; inset: auto -.04em -.22em -.04em; background: var(--acc); opacity: 1; border-radius: 0; }
 .pc-stage.theme-light .key.on, .pc-stage.theme-light .key.on .word { color: var(--ink); }
 .pc-stage.theme-light .hl.on, .pc-stage.theme-light .hl.on * { color: var(--ink) !important; }
 .theme-light .dot { border-radius: 0; box-shadow: none; width: calc(var(--u) * 2); height: calc(var(--u) * 2); margin: calc(var(--u) * -1) 0 0 calc(var(--u) * -1); }
@@ -123,7 +123,7 @@ svg { overflow: visible; }
 .theme-board .c-cmp div:not(.big) { font-size: calc(var(--u) * 3.7) !important; }
 .theme-board .scene > * { filter: url(#pc-chalk); }
 .theme-board .katex, .theme-board .katex * { color: var(--ink); }
-.theme-board .key .bar, .theme-board .hl::before { background: repeating-linear-gradient(-58deg, var(--acc) 0 .05em, transparent .05em .12em); inset: .86em -.1em -.2em -.1em; border-radius: 0; opacity: .9; rotate: -1.2deg; }
+.theme-board .key .bar, .theme-board .hl::before { background: repeating-linear-gradient(-58deg, var(--acc) 0 .05em, transparent .05em .12em); inset: 1.02em -.1em -.34em -.1em; border-radius: 0; opacity: .9; rotate: -1.2deg; }
 .pc-stage.theme-board .key.on, .pc-stage.theme-board .key.on .word { color: var(--acc); }
 .pc-stage.theme-board .hl.on, .pc-stage.theme-board .hl.on * { color: var(--acc) !important; }
 .theme-board .dot { border-radius: 35% 25% 40% 30%; width: calc(var(--u) * 3.8); height: calc(var(--u) * 1.6); margin: calc(var(--u) * -.8) 0 0 calc(var(--u) * -1.9); background: #f6f3ea; box-shadow: 0 0 calc(var(--u) * .9) rgba(255,255,255,.45), inset calc(var(--u) * -.5) 0 0 rgba(0,0,0,.12); }
@@ -208,7 +208,7 @@ svg { overflow: visible; }
 .theme-ink .kicker, .theme-ink .frame .lab { font-family: 'SERIF', 'KR', serif; font-weight: 800; letter-spacing: .3em; color: var(--dim); }
 .theme-ink .scene > * { filter: url(#pc-ink); }
 .theme-ink .textwrap, .theme-ink .c-cmp div:not(.big) { font-family: 'SERIF', 'KR', serif; font-weight: 800; }
-.theme-ink .key .bar, .theme-ink .hl::before { background: var(--acc); inset: auto -.1em -.1em -.06em; height: .16em; border-radius: 60% 30% 70% 40%; opacity: .85; rotate: -1.5deg; }
+.theme-ink .key .bar, .theme-ink .hl::before { background: var(--acc); inset: auto -.1em -.26em -.06em; height: .15em; border-radius: 60% 30% 70% 40%; opacity: .85; rotate: -1.5deg; }
 .pc-stage.theme-ink .key.on, .pc-stage.theme-ink .key.on .word, .pc-stage.theme-ink .hl.on, .pc-stage.theme-ink .hl.on * { color: var(--ink) !important; }
 .theme-ink .frame .rule { background: linear-gradient(90deg, transparent, rgba(28,26,23,.4) 10%, rgba(28,26,23,.15) 70%, transparent); height: 2px; }
 .theme-ink .frame .prog { background: var(--ink); opacity: .5; }
@@ -260,7 +260,7 @@ svg { overflow: visible; }
 .theme-cinema .pen { font-family: 'SERIF', 'KR', serif; font-weight: 800; color: var(--acc); letter-spacing: .1em; }
 .theme-cinema .frame .rule { opacity: 0; }
 .theme-cinema .frame .lab { opacity: .7; }
-.theme-cinema .key .bar, .theme-cinema .hl::before { background: linear-gradient(90deg, transparent, var(--acc), transparent); inset: auto -.2em -.12em -.2em; height: .06em; opacity: 1; }
+.theme-cinema .key .bar, .theme-cinema .hl::before { background: linear-gradient(90deg, transparent, var(--acc), transparent); inset: auto -.2em -.22em -.2em; height: .06em; opacity: 1; }
 .pc-stage.theme-cinema .key.on, .pc-stage.theme-cinema .key.on .word, .pc-stage.theme-cinema .hl.on, .pc-stage.theme-cinema .hl.on * { color: var(--acc) !important; text-shadow: 0 0 .4em rgba(244,199,107,.6); }
 .theme-cinema .dot { background: radial-gradient(circle, #fff8e6 0%, var(--acc) 35%, transparent 70%); box-shadow: 0 0 calc(var(--u) * 4) rgba(244,199,107,.6); width: calc(var(--u) * 3.6); height: calc(var(--u) * 3.6); margin: calc(var(--u) * -1.8) 0 0 calc(var(--u) * -1.8); }
 .theme-cinema .c-cmp { border-left: 2px solid rgba(244,199,107,.4); }
@@ -484,6 +484,14 @@ textarea { resize: vertical; }
 .top .brand .by:hover { color: #d7ff00; border-color: #d7ff00; }
 .top a.brand { color: #fff; text-decoration: none; }
 .top .brand .sp { color: #d7ff00; margin-right: 6px; letter-spacing: .01em; }
+/* 영상 파일로 저장(녹화) */
+.recov { position: fixed; inset: 0; z-index: 95; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.recframe { position: relative; overflow: hidden; background: #000; }
+.recframe > div { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.recbar { display: flex; gap: 12px; align-items: center; color: #9a9aa2; font-size: 13px; }
+.recbar .pill { background: #222; color: #fff; border-color: #444; }
+.recov.nocrop .recbar { opacity: .25; }
+.savecard .mini { font-size: 12px; color: #7a7a83; }
 </style>
 </head>
 <body>
@@ -1853,7 +1861,8 @@ textarea { resize: vertical; }
     h('div', { class: 'savegrid' },
       h('div', { class: 'savecard' }, h('b', {}, '📄 수업에 바로 쓰기'), h('p', {}, '재생 파일 하나로 저장해요. 수업 시간에 열어 재생하고, 다른 선생님께 보내도 돼요.'), h('button', { class: 'pill main', onclick: exportHTML }, '수업용 파일 저장')),
       h('div', { class: 'savecard' }, h('b', {}, '💾 나중에 이어서 · Claude 에게 보내기'), h('p', {}, '고친 내용을 파일로 저장해요. Claude 에게 보내며 "이걸로 내 목소리 넣고 영상 만들어 줘"라고 하면 목소리와 mp4 를 만들어 줘요.'), h('button', { class: 'pill main', onclick: saveJSON }, '시나리오 저장')),
-      h('div', { class: 'savecard' }, h('b', {}, '🎬 mp4 영상'), h('p', {}, '영상 파일은 Claude 가 만들어요. 위의 시나리오 파일을 Claude 에게 보내 주세요. 목소리 샘플(10초 녹음)도 함께 보내면 선생님 목소리로 읽어 넣어요.'))));
+      h('div', { class: 'savecard' }, h('b', {}, '🎬 영상 파일 (mp4)'), h('p', {}, '이 브라우저에서 바로 만들어요. 영상을 한 번 재생하며 영상 칸만 녹화해 파일로 저장해요(영상 길이만큼 걸려요). 크롬 · 엣지 · 웨일에서 돼요.'), h('button', { class: 'pill main', onclick: () => recordVideo() }, '영상 파일로 저장'),
+        h('p', { class: 'mini' }, '내 목소리를 AI 로 넣고 싶으면 시나리오 파일과 10초 녹음을 Claude 에게 보내 주세요.'))));
   right.append(
     h('section', { class: 'sec-style' }, h('h3', {}, '어떤 느낌으로 만들까요? ', h('small', {}, '그림에 마우스를 올리면 움직여요')), h('div', { class: 'row-acts' }, h('button', { class: 'pill main', onclick: () => showStarter() }, '▶ 11가지를 크게 움직여 보기'), scopeBox), gallery),
     h('section', { class: 'sec-fx' }, h('h3', {}, '효과 ', h('small', {}, '설명보다 직접 보고 골라요')), fxBox),
@@ -2223,7 +2232,7 @@ textarea { resize: vertical; }
     if (window.showSaveFilePicker) {
       try {
         const ext = name.slice(name.lastIndexOf('.'));
-        const fh = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: ext === '.json' ? '시나리오' : '수업용 파일', accept: { [type]: [ext] } }] });
+        const fh = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: ext === '.json' ? '시나리오' : ext === '.html' ? '수업용 파일' : '영상', accept: { [type]: [ext] } }] });
         const w = await fh.createWritable(); await w.write(blob); await w.close(); toast(`저장했어요 · ${fh.name}`); return;
       } catch (e) { if (e.name === 'AbortError') return; }
     }
@@ -2271,6 +2280,55 @@ textarea { resize: vertical; }
       h('ul', {}, li('윈도우: 수업용 파일을 열고 F(전체 화면) → Win + Alt + R 로 녹화 시작, 끝나면 다시 Win + Alt + R. 소리도 함께 녹화돼요(동영상 폴더 → 캡처).', '맥: 화면 기록(⌘ + Shift + 5)은 소리가 함께 녹화되지 않아요. Claude 에게 시나리오 파일을 주고 mp4 를 부탁하세요.'))));
     document.body.append(box);
   }
+  // ---------- 영상 파일로 저장: 한 번 재생하며 영상 칸만 녹화(탭 화면 공유 + 영역 자르기) · 소리는 페이지 안에서 바로 ----------
+  async function recordVideo() {
+    if (IN_ART) return uiSay('Claude 화면 안에서는 영상 녹화를 할 수 없어요. 웹 주소(브라우저)로 열거나 내려받은 스튜디오 파일에서 해 주세요.');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder) return uiSay('이 브라우저는 영상 저장을 지원하지 않아요. 컴퓨터의 크롬 · 엣지 · 웨일 최신판에서 해 주세요.');
+    const secs = inst ? Math.round(inst.DUR) : 0;
+    if (!await modal(`영상을 처음부터 끝까지 한 번 재생하며 녹화해요(약 ${secs}초). 곧 "공유할 화면" 창이 뜨면 「이 탭」을 고르고 「공유」를 눌러 주세요. 녹화하는 동안 창을 닫거나 다른 탭으로 가지 마세요.`, [['그만두기', false, 'ghost'], ['녹화 시작', true, 'main']])) return;
+    stop();
+    const frame = h('div', { class: 'recframe' }), st = h('div'); frame.append(st);
+    const msg = h('div', { class: 'recmsg' }, '준비하는 중…'), cancel = h('button', { class: 'pill' }, '멈추기');
+    const ov = h('div', { class: 'recov' }, frame, h('div', { class: 'recbar' }, msg, cancel)); document.body.append(ov);
+    let stopped = false, stream = null, rec = null, actx = null, sn = null; const chunks = [];
+    const finish = async cancelled => {
+      if (stopped) return; stopped = true;
+      try { sn && sn.stop(); } catch (e) {}
+      if (rec && rec.state !== 'inactive') await new Promise(r => { rec.onstop = r; rec.stop(); });
+      stream && stream.getTracks().forEach(t => t.stop()); actx && actx.close();
+      ov.remove();
+      if (cancelled || !chunks.length) return toast('녹화를 멈췄어요');
+      const type = rec.mimeType || 'video/webm', ext = type.includes('mp4') ? 'mp4' : 'webm';
+      download(`${slug()}.${ext}`, new Blob(chunks, { type }), type.split(';')[0]);
+    };
+    cancel.onclick = () => finish(true);
+    try {
+      const g = PC.mount(st, clone(L));
+      const k = Math.min(innerWidth * 0.94 / g.W, (innerHeight - 70) / g.H);
+      frame.style.width = g.W * k + 'px'; frame.style.height = g.H * k + 'px'; st.style.transform = `scale(${k})`;
+      await g.READY; g.seek(0);
+      const abuf = await g.audio();
+      try { stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, displaySurface: 'browser' }, audio: false, preferCurrentTab: true, selfBrowserSurface: 'include' }); }
+      catch (e) { ov.remove(); stopped = true; return uiSay('화면 공유를 하지 않아 녹화하지 않았어요. 다시 누르고 「이 탭」을 골라 공유해 주세요.'); }
+      const vt = stream.getVideoTracks()[0];
+      let cropped = false;
+      if (window.CropTarget && vt.cropTo) { try { await vt.cropTo(await CropTarget.fromElement(frame)); cropped = true; } catch (e) {} }
+      if (!cropped) ov.classList.add('nocrop');   // 자르기가 안 되는 브라우저: 안내 줄을 숨겨 화면에 덜 찍히게
+      vt.onended = () => finish(true);
+      actx = new (window.AudioContext || window.webkitAudioContext)(); const dest = actx.createMediaStreamDestination();
+      sn = actx.createBufferSource(); sn.buffer = abuf; sn.connect(dest); sn.connect(actx.destination);
+      const types = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a', 'video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4'];   // 어디서나 열리는 mp4(H.264) 먼저
+      const mime = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+      rec = new MediaRecorder(new MediaStream([vt, ...dest.stream.getAudioTracks()]), mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : {});
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      msg.textContent = `녹화 중… 약 ${secs}초 · 끝나면 저장 창이 떠요`;
+      await new Promise(r => setTimeout(r, 500));
+      if (stopped) return;
+      rec.start(500); const t0 = actx.currentTime + 0.08; sn.start(t0);
+      const loop = () => { if (stopped) return; const tt = actx.currentTime - t0; g.seek(Math.max(0, Math.min(tt, g.DUR - 0.001))); msg.textContent = `녹화 중… ${Math.max(0, Math.ceil(g.DUR - tt))}초 남음`; if (tt >= g.DUR + 0.4) finish(false); else requestAnimationFrame(loop); };
+      requestAnimationFrame(loop);
+    } catch (e) { if (!stopped) { stopped = true; stream && stream.getTracks().forEach(t => t.stop()); ov.remove(); uiSay('녹화하지 못했어요: ' + e.message); } }
+  }
   // ---------- 처음 화면: 스타일을 설명이 아니라 '움직이는 모습'으로 보고 고른다 ----------
   function previewLesson(id) {
     const one = clone(L); one.style = id;
@@ -2292,7 +2350,7 @@ textarea { resize: vertical; }
       const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
       const card = h('div', { class: 'st-card' + (L.style === S.id ? ' on' : '') },
         h('button', { class: 'st-pic', title: '이 스타일로 시작', onclick: () => pick(S.id) }, holder),
-        h('div', { class: 'st-row' }, h('b', {}, S.name), h('button', { class: 'pill', title: '크게 · 소리와 함께', onclick: () => bigView(S.id, pick) }, '🔊 크게 보기')));
+        h('div', { class: 'st-row' }, h('b', {}, S.name), h('button', { class: 'pill', title: '크게 · 소리와 함께 보기', onclick: () => bigView(S.id, pick) }, '🔍 크게 보기')));
       grid.append(card);
       try {
         const g = PC.mount(st, previewLesson(S.id));

@@ -106,7 +106,8 @@
     h('div', { class: 'savegrid' },
       h('div', { class: 'savecard' }, h('b', {}, '📄 수업에 바로 쓰기'), h('p', {}, '재생 파일 하나로 저장해요. 수업 시간에 열어 재생하고, 다른 선생님께 보내도 돼요.'), h('button', { class: 'pill main', onclick: exportHTML }, '수업용 파일 저장')),
       h('div', { class: 'savecard' }, h('b', {}, '💾 나중에 이어서 · Claude 에게 보내기'), h('p', {}, '고친 내용을 파일로 저장해요. Claude 에게 보내며 "이걸로 내 목소리 넣고 영상 만들어 줘"라고 하면 목소리와 mp4 를 만들어 줘요.'), h('button', { class: 'pill main', onclick: saveJSON }, '시나리오 저장')),
-      h('div', { class: 'savecard' }, h('b', {}, '🎬 mp4 영상'), h('p', {}, '영상 파일은 Claude 가 만들어요. 위의 시나리오 파일을 Claude 에게 보내 주세요. 목소리 샘플(10초 녹음)도 함께 보내면 선생님 목소리로 읽어 넣어요.'))));
+      h('div', { class: 'savecard' }, h('b', {}, '🎬 영상 파일 (mp4)'), h('p', {}, '이 브라우저에서 바로 만들어요. 영상을 한 번 재생하며 영상 칸만 녹화해 파일로 저장해요(영상 길이만큼 걸려요). 크롬 · 엣지 · 웨일에서 돼요.'), h('button', { class: 'pill main', onclick: () => recordVideo() }, '영상 파일로 저장'),
+        h('p', { class: 'mini' }, '내 목소리를 AI 로 넣고 싶으면 시나리오 파일과 10초 녹음을 Claude 에게 보내 주세요.'))));
   right.append(
     h('section', { class: 'sec-style' }, h('h3', {}, '어떤 느낌으로 만들까요? ', h('small', {}, '그림에 마우스를 올리면 움직여요')), h('div', { class: 'row-acts' }, h('button', { class: 'pill main', onclick: () => showStarter() }, '▶ 11가지를 크게 움직여 보기'), scopeBox), gallery),
     h('section', { class: 'sec-fx' }, h('h3', {}, '효과 ', h('small', {}, '설명보다 직접 보고 골라요')), fxBox),
@@ -476,7 +477,7 @@
     if (window.showSaveFilePicker) {
       try {
         const ext = name.slice(name.lastIndexOf('.'));
-        const fh = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: ext === '.json' ? '시나리오' : '수업용 파일', accept: { [type]: [ext] } }] });
+        const fh = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: ext === '.json' ? '시나리오' : ext === '.html' ? '수업용 파일' : '영상', accept: { [type]: [ext] } }] });
         const w = await fh.createWritable(); await w.write(blob); await w.close(); toast(`저장했어요 · ${fh.name}`); return;
       } catch (e) { if (e.name === 'AbortError') return; }
     }
@@ -524,6 +525,55 @@
       h('ul', {}, li('윈도우: 수업용 파일을 열고 F(전체 화면) → Win + Alt + R 로 녹화 시작, 끝나면 다시 Win + Alt + R. 소리도 함께 녹화돼요(동영상 폴더 → 캡처).', '맥: 화면 기록(⌘ + Shift + 5)은 소리가 함께 녹화되지 않아요. Claude 에게 시나리오 파일을 주고 mp4 를 부탁하세요.'))));
     document.body.append(box);
   }
+  // ---------- 영상 파일로 저장: 한 번 재생하며 영상 칸만 녹화(탭 화면 공유 + 영역 자르기) · 소리는 페이지 안에서 바로 ----------
+  async function recordVideo() {
+    if (IN_ART) return uiSay('Claude 화면 안에서는 영상 녹화를 할 수 없어요. 웹 주소(브라우저)로 열거나 내려받은 스튜디오 파일에서 해 주세요.');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder) return uiSay('이 브라우저는 영상 저장을 지원하지 않아요. 컴퓨터의 크롬 · 엣지 · 웨일 최신판에서 해 주세요.');
+    const secs = inst ? Math.round(inst.DUR) : 0;
+    if (!await modal(`영상을 처음부터 끝까지 한 번 재생하며 녹화해요(약 ${secs}초). 곧 "공유할 화면" 창이 뜨면 「이 탭」을 고르고 「공유」를 눌러 주세요. 녹화하는 동안 창을 닫거나 다른 탭으로 가지 마세요.`, [['그만두기', false, 'ghost'], ['녹화 시작', true, 'main']])) return;
+    stop();
+    const frame = h('div', { class: 'recframe' }), st = h('div'); frame.append(st);
+    const msg = h('div', { class: 'recmsg' }, '준비하는 중…'), cancel = h('button', { class: 'pill' }, '멈추기');
+    const ov = h('div', { class: 'recov' }, frame, h('div', { class: 'recbar' }, msg, cancel)); document.body.append(ov);
+    let stopped = false, stream = null, rec = null, actx = null, sn = null; const chunks = [];
+    const finish = async cancelled => {
+      if (stopped) return; stopped = true;
+      try { sn && sn.stop(); } catch (e) {}
+      if (rec && rec.state !== 'inactive') await new Promise(r => { rec.onstop = r; rec.stop(); });
+      stream && stream.getTracks().forEach(t => t.stop()); actx && actx.close();
+      ov.remove();
+      if (cancelled || !chunks.length) return toast('녹화를 멈췄어요');
+      const type = rec.mimeType || 'video/webm', ext = type.includes('mp4') ? 'mp4' : 'webm';
+      download(`${slug()}.${ext}`, new Blob(chunks, { type }), type.split(';')[0]);
+    };
+    cancel.onclick = () => finish(true);
+    try {
+      const g = PC.mount(st, clone(L));
+      const k = Math.min(innerWidth * 0.94 / g.W, (innerHeight - 70) / g.H);
+      frame.style.width = g.W * k + 'px'; frame.style.height = g.H * k + 'px'; st.style.transform = `scale(${k})`;
+      await g.READY; g.seek(0);
+      const abuf = await g.audio();
+      try { stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, displaySurface: 'browser' }, audio: false, preferCurrentTab: true, selfBrowserSurface: 'include' }); }
+      catch (e) { ov.remove(); stopped = true; return uiSay('화면 공유를 하지 않아 녹화하지 않았어요. 다시 누르고 「이 탭」을 골라 공유해 주세요.'); }
+      const vt = stream.getVideoTracks()[0];
+      let cropped = false;
+      if (window.CropTarget && vt.cropTo) { try { await vt.cropTo(await CropTarget.fromElement(frame)); cropped = true; } catch (e) {} }
+      if (!cropped) ov.classList.add('nocrop');   // 자르기가 안 되는 브라우저: 안내 줄을 숨겨 화면에 덜 찍히게
+      vt.onended = () => finish(true);
+      actx = new (window.AudioContext || window.webkitAudioContext)(); const dest = actx.createMediaStreamDestination();
+      sn = actx.createBufferSource(); sn.buffer = abuf; sn.connect(dest); sn.connect(actx.destination);
+      const types = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a', 'video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4'];   // 어디서나 열리는 mp4(H.264) 먼저
+      const mime = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+      rec = new MediaRecorder(new MediaStream([vt, ...dest.stream.getAudioTracks()]), mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : {});
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      msg.textContent = `녹화 중… 약 ${secs}초 · 끝나면 저장 창이 떠요`;
+      await new Promise(r => setTimeout(r, 500));
+      if (stopped) return;
+      rec.start(500); const t0 = actx.currentTime + 0.08; sn.start(t0);
+      const loop = () => { if (stopped) return; const tt = actx.currentTime - t0; g.seek(Math.max(0, Math.min(tt, g.DUR - 0.001))); msg.textContent = `녹화 중… ${Math.max(0, Math.ceil(g.DUR - tt))}초 남음`; if (tt >= g.DUR + 0.4) finish(false); else requestAnimationFrame(loop); };
+      requestAnimationFrame(loop);
+    } catch (e) { if (!stopped) { stopped = true; stream && stream.getTracks().forEach(t => t.stop()); ov.remove(); uiSay('녹화하지 못했어요: ' + e.message); } }
+  }
   // ---------- 처음 화면: 스타일을 설명이 아니라 '움직이는 모습'으로 보고 고른다 ----------
   function previewLesson(id) {
     const one = clone(L); one.style = id;
@@ -545,7 +595,7 @@
       const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
       const card = h('div', { class: 'st-card' + (L.style === S.id ? ' on' : '') },
         h('button', { class: 'st-pic', title: '이 스타일로 시작', onclick: () => pick(S.id) }, holder),
-        h('div', { class: 'st-row' }, h('b', {}, S.name), h('button', { class: 'pill', title: '크게 · 소리와 함께', onclick: () => bigView(S.id, pick) }, '🔊 크게 보기')));
+        h('div', { class: 'st-row' }, h('b', {}, S.name), h('button', { class: 'pill', title: '크게 · 소리와 함께 보기', onclick: () => bigView(S.id, pick) }, '🔍 크게 보기')));
       grid.append(card);
       try {
         const g = PC.mount(st, previewLesson(S.id));

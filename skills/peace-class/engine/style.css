@@ -90,7 +90,7 @@ svg { overflow: visible; }
 .theme-light .c-title, .theme-light .c-end { align-items: flex-start !important; text-align: left !important; }
 .theme-light .c-title .big { border-top: calc(var(--u) * .9) solid var(--ink); padding-top: .12em; }
 .theme-light .c-cmp { border-top: calc(var(--u) * .5) solid var(--ink); }
-.theme-light .key .bar, .theme-light .hl::before { top: auto; bottom: -.06em; height: .13em; inset: auto -.04em -.06em -.04em; background: var(--acc); opacity: 1; border-radius: 0; }
+.theme-light .key .bar, .theme-light .hl::before { top: auto; bottom: -.22em; height: .12em; inset: auto -.04em -.22em -.04em; background: var(--acc); opacity: 1; border-radius: 0; }
 .pc-stage.theme-light .key.on, .pc-stage.theme-light .key.on .word { color: var(--ink); }
 .pc-stage.theme-light .hl.on, .pc-stage.theme-light .hl.on * { color: var(--ink) !important; }
 .theme-light .dot { border-radius: 0; box-shadow: none; width: calc(var(--u) * 2); height: calc(var(--u) * 2); margin: calc(var(--u) * -1) 0 0 calc(var(--u) * -1); }
@@ -108,7 +108,7 @@ svg { overflow: visible; }
 .theme-board .c-cmp div:not(.big) { font-size: calc(var(--u) * 3.7) !important; }
 .theme-board .scene > * { filter: url(#pc-chalk); }
 .theme-board .katex, .theme-board .katex * { color: var(--ink); }
-.theme-board .key .bar, .theme-board .hl::before { background: repeating-linear-gradient(-58deg, var(--acc) 0 .05em, transparent .05em .12em); inset: .86em -.1em -.2em -.1em; border-radius: 0; opacity: .9; rotate: -1.2deg; }
+.theme-board .key .bar, .theme-board .hl::before { background: repeating-linear-gradient(-58deg, var(--acc) 0 .05em, transparent .05em .12em); inset: 1.02em -.1em -.34em -.1em; border-radius: 0; opacity: .9; rotate: -1.2deg; }
 .pc-stage.theme-board .key.on, .pc-stage.theme-board .key.on .word { color: var(--acc); }
 .pc-stage.theme-board .hl.on, .pc-stage.theme-board .hl.on * { color: var(--acc) !important; }
 .theme-board .dot { border-radius: 35% 25% 40% 30%; width: calc(var(--u) * 3.8); height: calc(var(--u) * 1.6); margin: calc(var(--u) * -.8) 0 0 calc(var(--u) * -1.9); background: #f6f3ea; box-shadow: 0 0 calc(var(--u) * .9) rgba(255,255,255,.45), inset calc(var(--u) * -.5) 0 0 rgba(0,0,0,.12); }
@@ -193,7 +193,7 @@ svg { overflow: visible; }
 .theme-ink .kicker, .theme-ink .frame .lab { font-family: 'SERIF', 'KR', serif; font-weight: 800; letter-spacing: .3em; color: var(--dim); }
 .theme-ink .scene > * { filter: url(#pc-ink); }
 .theme-ink .textwrap, .theme-ink .c-cmp div:not(.big) { font-family: 'SERIF', 'KR', serif; font-weight: 800; }
-.theme-ink .key .bar, .theme-ink .hl::before { background: var(--acc); inset: auto -.1em -.1em -.06em; height: .16em; border-radius: 60% 30% 70% 40%; opacity: .85; rotate: -1.5deg; }
+.theme-ink .key .bar, .theme-ink .hl::before { background: var(--acc); inset: auto -.1em -.26em -.06em; height: .15em; border-radius: 60% 30% 70% 40%; opacity: .85; rotate: -1.5deg; }
 .pc-stage.theme-ink .key.on, .pc-stage.theme-ink .key.on .word, .pc-stage.theme-ink .hl.on, .pc-stage.theme-ink .hl.on * { color: var(--ink) !important; }
 .theme-ink .frame .rule { background: linear-gradient(90deg, transparent, rgba(28,26,23,.4) 10%, rgba(28,26,23,.15) 70%, transparent); height: 2px; }
 .theme-ink .frame .prog { background: var(--ink); opacity: .5; }
@@ -245,7 +245,7 @@ svg { overflow: visible; }
 .theme-cinema .pen { font-family: 'SERIF', 'KR', serif; font-weight: 800; color: var(--acc); letter-spacing: .1em; }
 .theme-cinema .frame .rule { opacity: 0; }
 .theme-cinema .frame .lab { opacity: .7; }
-.theme-cinema .key .bar, .theme-cinema .hl::before { background: linear-gradient(90deg, transparent, var(--acc), transparent); inset: auto -.2em -.12em -.2em; height: .06em; opacity: 1; }
+.theme-cinema .key .bar, .theme-cinema .hl::before { background: linear-gradient(90deg, transparent, var(--acc), transparent); inset: auto -.2em -.22em -.2em; height: .06em; opacity: 1; }
 .pc-stage.theme-cinema .key.on, .pc-stage.theme-cinema .key.on .word, .pc-stage.theme-cinema .hl.on, .pc-stage.theme-cinema .hl.on * { color: var(--acc) !important; text-shadow: 0 0 .4em rgba(244,199,107,.6); }
 .theme-cinema .dot { background: radial-gradient(circle, #fff8e6 0%, var(--acc) 35%, transparent 70%); box-shadow: 0 0 calc(var(--u) * 4) rgba(244,199,107,.6); width: calc(var(--u) * 3.6); height: calc(var(--u) * 3.6); margin: calc(var(--u) * -1.8) 0 0 calc(var(--u) * -1.8); }
 .theme-cinema .c-cmp { border-left: 2px solid rgba(244,199,107,.4); }

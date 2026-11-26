@@ -779,7 +779,8 @@
       ...(cellsIn ? cellsIn.map(c => ({ sty: STYLES.find(s => s.id === c.style) || STY, label: c.label, fact: true, pin: c.x != null ? c : null, at: c.at }))
         : ids.map(id => ({ sty: STYLES.find(s => s.id === id) })))];
     const n = items.length, cols = R ? 3 : (n <= 6 ? 3 : 4), rows = Math.ceil(n / cols);
-    const G = R ? S : { x: S.x, y: S.y - 2.5 * U, w: S.w, h: S.h + 5 * U };   // 모아 보기는 화면을 넓게 쓴다
+    const hasSub = L.subs !== 'off' && sc.say && (sc.voiceData || sc.voiceDur);   // 자막 자리는 비운다
+    const G = R ? S : { x: S.x, y: S.y - 2.5 * U, w: S.w, h: S.h + (hasSub ? -1.5 : 5) * U };   // 모아 보기는 화면을 넓게 쓴다
     const top = sc.title ? (R ? 7 : 4.6) * U : 0, bot = sc.note ? (R ? 9 : 6.4) * U : 0, gap = (R ? 2 : 1.2) * U;
     const aw = G.w, ah = G.h - top - bot;
     let cw = (aw - gap * (cols - 1)) / cols, ch = Math.min((ah - gap * (rows - 1)) / rows, cw * (R ? 1.1 : 0.75));

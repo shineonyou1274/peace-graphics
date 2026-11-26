@@ -277,6 +277,13 @@ svg { overflow: visible; }
 .r916 .gcell .glab.fact { font-size: calc(var(--u) * 3); }
 .gcell .gring { position: absolute; width: calc(var(--u) * 4.8); height: calc(var(--u) * 4.8); border-radius: 50%; border: calc(var(--u) * .6) solid var(--acc); box-shadow: 0 0 0 calc(var(--u) * .25) rgba(0,0,0,.35); opacity: 0; z-index: 2; }
 .theme-pixel .gcell .gring, .theme-pixel.gcell .gring { border-radius: 0; }
+/* 자막: 대사 한 토막 · 아래 가운데 · 어느 스타일에서나 읽히게 */
+.subs { position: absolute; z-index: 20; text-align: center; pointer-events: none; font-family: 'KR', sans-serif; font-weight: 900; -webkit-font-smoothing: antialiased; }
+.subs { font-size: calc(var(--u) * 3.1); line-height: 1.35; }
+.subs::before { content: none; }
+.subs { color: #fff; text-shadow: 0 0 .18em rgba(0,0,0,.9), 0 .06em .25em rgba(0,0,0,.9); }
+.r916 .subs { font-size: calc(var(--u) * 4.4); }
+.subs > span { display: inline-block; background: rgba(0,0,0,.66); padding: .14em .65em .18em; border-radius: .35em; text-shadow: none; }
 </style>
 <style>/* 수업 영상 스튜디오 화면 */
 :root { --s-bg: #f3f2ee; --s-card: #ffffff; --s-ink: #1d1d22; --s-dim: #7a7a83; --s-line: #e3e1db; --s-acc: #1f6feb; --s-on: #fff7d6; }
@@ -388,6 +395,20 @@ textarea { resize: vertical; }
 .scope input { width: auto; }
 .linkbtn { border: none; background: none; color: var(--s-dim); text-decoration: underline; cursor: pointer; font-size: 12px; margin-left: auto; }
 .stsel { font-weight: 700; }
+/* 흐름 보기 */
+.flow { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.fcard { background: #fff; border: 1px solid #e3e3e8; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.fcard.on { border-color: #1a73e8; box-shadow: 0 0 0 2px #1a73e855; }
+.fcard .fpic { padding: 0; border: 0; background: none; cursor: pointer; display: block; width: 100%; }
+.fcard .thumb-stage { position: relative; overflow: hidden; border-radius: 8px; width: 100%; }
+.fcard .thumb-stage > div { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.fcard .fmeta { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: #666; flex-wrap: wrap; }
+.fcard .fmeta b { color: #111; font-size: 13px; }
+.fcard .fmeta .vs { margin-left: auto; }
+.fcard .fsay { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.45; border: 1px solid #ddd; border-radius: 8px; padding: 6px 8px; resize: vertical; }
+.fcard .fsubs { display: flex; flex-wrap: wrap; gap: 4px; }
+.fcard .fsubs span { background: #222; color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 4px; }
+.fcard .fwarn { font-size: 12px; color: #a15c00; background: #fff4e0; border-radius: 6px; padding: 5px 7px; }
 </style>
 </head>
 <body>
@@ -487,6 +508,27 @@ textarea { resize: vertical; }
   };
   const ARTS = { leaf: '잎' }; let artN = 0;
 
+  // 대사를 자막 토막으로: 문장 → 길면 쉼표 → 그래도 길면 띄어쓰기에서(한 토막 26자 안팎)
+  const chunkSay = t => {
+    const MAX = 26, out = [];
+    const even = x => {   // 길면 고르게 나눈다(끝에 한 낱말만 남지 않게)
+      const n = Math.ceil(x.length / MAX), res = []; let rest = x;
+      for (let k = n; k > 1; k--) { const goal = rest.length / k; let best = -1; for (let i = 0; i < rest.length; i++) if (rest[i] === ' ' && (best < 0 || Math.abs(i - goal) < Math.abs(best - goal))) best = i; if (best < 0) break; res.push(rest.slice(0, best)); rest = rest.slice(best + 1); }
+      res.push(rest); return res;
+    };
+    const sents = (String(t).replace(/\s+/g, ' ').trim().match(/[^.?!…]+[.?!…]*[\"'”’]?/g) || []).map(x => x.trim()).filter(Boolean);
+    for (const se of sents) {
+      if (se.length <= MAX) { out.push(se); continue; }
+      let buf = '';
+      for (const piece of se.split(/(?<=,)\s*/)) {
+        if ((buf + ' ' + piece).trim().length <= MAX) buf = (buf + ' ' + piece).trim();
+        else { if (buf) out.push(buf); buf = piece; }
+        if (buf.length > MAX) { even(buf).slice(0, -1).forEach(x => out.push(x)); buf = even(buf).at(-1); }
+      }
+      if (buf) out.push(buf);
+    }
+    return out;
+  };
   function mount(stage, L, opt = {}) {
   const R = L.ratio === '9:16';
   const W = R ? 1080 : 1920, H = R ? 1920 : 1080, U = Math.min(W, H) / 100;
@@ -1330,6 +1372,20 @@ textarea { resize: vertical; }
   });
   let acc = 0; scenes.forEach(s => { s.t0 = acc; acc += s.dur; s.hits.forEach(([t, k]) => HITS.push({ t: +(s.t0 + t).toFixed(3), kind: k, scene: s.i + 1 })); });
   const DUR = acc;
+  // 자막: 목소리가 있는 장면의 대사(say)를 아래에 한 토막씩 — sc.cues[{t, text}](sync 가 적은 말하는 때)가 없으면 글자 수로 나눈다. L.subs = 'off' 면 끈다
+  const SUBS = L.subs !== 'off';
+  const subEl = el('div', 'subs', stage), subTx = el('span', null, subEl); subEl.style.display = 'none';
+  css(subEl, R ? { left: px(S.x), width: px(S.w), top: px(S.y + S.h + 2 * U) } : { left: px(S.x), width: px(S.w), top: px(S.y + S.h + 1.2 * U) });
+  scenes.forEach(s => {
+    const sc = s.sc; s.cues = null;
+    if (!SUBS || !sc.say || !(sc.voiceDur || sc.voiceData)) return;
+    let cs = Array.isArray(sc.cues) && sc.cues.length ? sc.cues.map(c => ({ t: +c.t, text: c.text })) : null;
+    if (!cs) {
+      const parts = chunkSay(sc.say), n = parts.reduce((a, x) => a + x.replace(/\s/g, '').length, 0) || 1, d = Math.max(1, (sc.voiceDur || s.dur - 1.5) - 0.35);
+      let at = 0.35; cs = parts.map(x => { const c = { t: at, text: x }; at += d * x.replace(/\s/g, '').length / n; return c; });
+    }
+    s.cues = cs; s.cueEnd = 0.35 + (sc.voiceDur || s.dur - 1) + 0.15;
+  });
   HITS.sort((a, b) => a.t - b.t);
 
   // 장면 사이 점 옮기기 (아크 · 스쿼시 앤 스트레치)
@@ -1346,6 +1402,9 @@ textarea { resize: vertical; }
   const seek = t => {
     t = clamp(t, 0, DUR - 1e-4);
     const act = scenes.find(s => t >= s.t0 && t < s.t0 + s.dur) || scenes.at(-1); applyTheme(act.STY);
+    { const lt = t - act.t0, cs = act.cues; let c = null;
+      if (cs && lt < act.cueEnd) for (const x of cs) if (lt >= x.t) c = x;
+      if (c) { if (subTx.textContent !== c.text) subTx.textContent = c.text; subEl.style.display = ''; } else subEl.style.display = 'none'; }
     if (STY.steps) t = Math.floor(t * STY.steps) / STY.steps;   // 종이 공작 · 픽셀: 뚝뚝 끊기는 움직임
     for (const s of scenes) {
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
@@ -1595,7 +1654,7 @@ textarea { resize: vertical; }
     });
   }
 
-  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
+  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, chunkSay, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
   // 수업용 파일 · 렌더용 페이지: LESSON 과 #stage 가 있으면 바로 띄운다
   const st = document.getElementById('stage');
   if (window.LESSON && st && !window.__NO_AUTO__) {
@@ -1675,6 +1734,7 @@ textarea { resize: vertical; }
   const playBtn = h('button', { class: 'play', onclick: () => toggle() }, '▶ 재생');
   const timeEl = h('span', { class: 'time' }, '0:00');
   const qaBox = h('div', { class: 's-qa' });
+  const flow = h('div', { class: 'flow' });
   let onlyScene = false;
   const scopeBox = h('div', { class: 'scope' },
     h('label', {}, h('input', { type: 'radio', name: 'scope', checked: true, onchange: () => { onlyScene = false; refreshGallery(); } }), ' 수업 전체에'),
@@ -1682,7 +1742,8 @@ textarea { resize: vertical; }
     h('button', { class: 'linkbtn', onclick: () => { L.scenes.forEach(x => delete x.style); changed(true); renderLeft(); refreshGallery(); } }, '장면별 스타일 모두 지우기'));
   right.append(
     h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '지금 고른 장면이 스타일마다 어떻게 보이는지 · 장면마다 다르게 해도 돼요')), scopeBox, gallery),
-    h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox));
+    h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox),
+    h('section', {}, h('h3', {}, '4 · 흐름 보기 ', h('small', {}, '장면 순서대로 한눈에 · 그림을 누르면 미리보기로 · 아래 칸에서 대사 · 자막을 바로 고쳐요')), flow));
 
   function renderAll() { renderLeft(); refresh(true); }
 
@@ -1701,7 +1762,9 @@ textarea { resize: vertical; }
         row('소리', h('select', { onchange: e => { L.mood = e.target.value; changed(); } }, MOODS.map(([v, n]) => h('option', { value: v, selected: (L.mood || 'calm') === v }, n))))),
       h('div', { class: 'two' },
         row('박자마다 쾅', h('select', { onchange: e => { L.beat = e.target.value; if (L.beat === 'auto') delete L.beat; changed(true); } }, [['auto', '스타일대로'], ['on', '켜기'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.beat || 'auto') === v }, n)))),
-        row('장면 넘김', h('select', { onchange: e => { L.trans = e.target.value; if (L.trans === 'style') delete L.trans; changed(true); } }, [['style', '스타일대로'], ['zoom', '끝없는 줌']].map(([v, n]) => h('option', { value: v, selected: (L.trans || 'style') === v }, n))))));
+        row('장면 넘김', h('select', { onchange: e => { L.trans = e.target.value; if (L.trans === 'style') delete L.trans; changed(true); } }, [['style', '스타일대로'], ['zoom', '끝없는 줌']].map(([v, n]) => h('option', { value: v, selected: (L.trans || 'style') === v }, n))))),
+      h('div', { class: 'two' },
+        row('자막', h('select', { onchange: e => { if (e.target.value === 'off') L.subs = 'off'; else delete L.subs; changed(true); } }, [['on', '켜기 (목소리 있는 장면)'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.subs === 'off' ? 'off' : 'on') === v }, n))))));
     left.append(h('h3', { class: 'step' }, '2 · 시나리오 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), info);
     L.scenes.forEach((sc, i) => left.append(sceneCard(sc, i)));
     left.append(addBox(L.scenes.length - 1));
@@ -1932,7 +1995,7 @@ textarea { resize: vertical; }
     const qa = inst.QA(); inst.seek(t);
     qaBox.innerHTML = '';
     qaBox.append(qa.length ? h('div', { class: 'bad' }, h('b', {}, `⚠ 화면 점검 ${qa.length}건 — 글을 줄이거나 장면을 나눠 주세요`), h('ul', {}, qa.map(q => h('li', {}, q)))) : h('div', { class: 'good' }, `✓ 화면 점검 이상 없음 · 장면 ${inst.SCENES.length}개 · 약 ${Math.round(inst.DUR)}초`));
-    refreshGallery();
+    refreshGallery(); refreshFlow();
   }
   function fitPv() { const avail = right.clientWidth, maxW = innerHeight * 0.62 * inst.W / inst.H; pvWrap.style.width = Math.min(avail, maxW) + 'px'; const k = Math.min(avail, maxW) / inst.W; pvStage.style.transform = `scale(${k})`; pvWrap.style.height = inst.H * k + 'px'; }
   addEventListener('resize', () => { if (inst) fitPv(); refreshGallery(); });
@@ -1988,6 +2051,33 @@ textarea { resize: vertical; }
         g.READY.then(() => g.seek(g.SCENES[0].dur - 0.55));
       } catch (e) { holder.textContent = '⚠'; }
     }
+  }
+
+  // ---------- 흐름 보기: 장면마다 그림 한 장 + 대사(자막) ----------
+  let fTimer = null;
+  function refreshFlow() { clearTimeout(fTimer); fTimer = setTimeout(drawFlow, 250); }
+  async function drawFlow() {
+    flow.innerHTML = '';
+    let acc = 0;
+    L.scenes.forEach((sc, i) => {
+      const s0 = inst && inst.SCENES[i], dur = s0 ? s0.dur : 0, at = acc; acc += dur;
+      const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
+      const changedSay = sc.voiceSay != null && sc.voiceData && (sc.say || '').trim() !== (sc.voiceSay || '').trim();
+      const subs = sc.say && sc.voiceData && L.subs !== 'off' ? PC.chunkSay(sc.say) : [];
+      const card = h('div', { class: 'fcard' + (i === cur ? ' on' : '') },
+        h('button', { class: 'fpic', title: '이 장면 미리보기', onclick: () => { cur = i; markCur(); jumpTo(i); refreshGallery(); [...flow.children].forEach((c, j) => c.classList.toggle('on', j === i)); left.querySelectorAll('.s-scene')[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, holder),
+        h('div', { class: 'fmeta' }, h('b', {}, `${i + 1} · ${TYPES[sc.type]?.name || sc.type}`), h('span', {}, `${Math.floor(at / 60)}:${String(Math.floor(at % 60)).padStart(2, '0')} · ${dur.toFixed(1)}초`), h('span', { class: 'vs' }, sc.voiceData ? '🔊 목소리' : '🔇 목소리 없음')),
+        h('textarea', { rows: 3, class: 'fsay', placeholder: '대사 (목소리로 읽을 글 · 목소리가 있으면 자막으로 나와요)', oninput: e => { sc.say = e.target.value; delete sc.cues; store.set('peace-studio-draft', JSON.stringify(L)); clearTimeout(timer); timer = setTimeout(() => { renderLeft(); refresh(); }, 900); } }, sc.say || ''),
+        subs.length ? h('div', { class: 'fsubs' }, subs.map(x => h('span', {}, x))) : null,
+        changedSay ? h('div', { class: 'fwarn' }, '✎ 대사가 바뀌었어요 — 목소리는 예전 그대로예요. 시나리오를 저장해 Claude 에게 보내면 이 장면만 다시 읽혀요.') : null);
+      flow.append(card);
+      try {
+        const one = { ...clone(L), scenes: [clone(sc)] }; one.scenes[0].style = sc.style || L.style; delete one.scenes[0].voiceData; delete one.scenes[0].voiceDur;
+        const g = PC.mount(st, one);
+        const k = holder.clientWidth / g.W; st.style.transform = `scale(${k})`; holder.style.height = g.H * k + 'px';
+        g.READY.then(() => g.seek(g.SCENES[0].dur - 0.55));
+      } catch (e) { holder.textContent = '⚠'; }
+    });
   }
 
   // ---------- 저장 · 열기 ----------

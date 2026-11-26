@@ -688,7 +688,7 @@
       if (sc.title) { kick = el('div', 'kicker', side, sc.title); TEXTS.push(sc.title); }
       if (sc.caption) { cap = el('div', 'textwrap', side); rich(cap, sc.caption); css(cap, { fontSize: px((R ? 5 : 3.6) * U), lineHeight: 1.5 }); TEXTS.push(plain(sc.caption)); }
     }
-    const pt = pins.map((_, j) => 1.5 + j * 1.15);
+    const pt = pins.map((q, j) => q.at != null ? +q.at : 1.5 + j * 1.15);   // at: 그 말을 하는 때(초) — 목소리와 이름표 맞추기
     const tCap = 1.0;
     const dur = sc.dur || Math.max(4.5, (pt.length ? pt.at(-1) + 2.2 : 4.5));
     let F = null, O = { x: 50, y: 50 };   // F = 사진이 실제로 놓인 자리(비율 유지), O = 다가가는 가운데
@@ -752,7 +752,11 @@
   T.gallery = (sc, root) => {
     const name = ART[sc.draw] ? sc.draw : 'leaf';
     const ids = (sc.styles && sc.styles.length ? sc.styles : STYLES.map(s => s.id)).filter(id => STYLES.some(s => s.id === id));
-    const items = [...(sc.src ? [{ photo: sc.src, label: sc.photoLabel || '진짜' }] : []), ...ids.map(id => ({ sty: STYLES.find(s => s.id === id) }))];
+    // sc.cells[{label, x, y, at, style}]: 칸마다 배운 내용 한 줄 + 짚는 자리 — 정리 화면(스타일은 장면 스타일 하나)
+    const cellsIn = Array.isArray(sc.cells) && sc.cells.length ? sc.cells : null;
+    const items = [...(sc.src ? [{ photo: sc.src, label: sc.photoLabel || '진짜' }] : []),
+      ...(cellsIn ? cellsIn.map(c => ({ sty: STYLES.find(s => s.id === c.style) || STY, label: c.label, fact: true, pin: c.x != null ? c : null, at: c.at }))
+        : ids.map(id => ({ sty: STYLES.find(s => s.id === id) })))];
     const n = items.length, cols = R ? 3 : (n <= 6 ? 3 : 4), rows = Math.ceil(n / cols);
     const G = R ? S : { x: S.x, y: S.y - 2.5 * U, w: S.w, h: S.h + 5 * U };   // 모아 보기는 화면을 넓게 쓴다
     const top = sc.title ? (R ? 7 : 4.6) * U : 0, bot = sc.note ? (R ? 9 : 6.4) * U : 0, gap = (R ? 2 : 1.2) * U;
@@ -773,10 +777,12 @@
         if (it.sty.id === 'pixel') { art = el('img', null, c); art.dataset.pix = '1'; art.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(A.svg); css(art, { width: '100%', height: '100%', display: 'block', objectFit: 'contain', imageRendering: 'pixelated' }); }
         else { art = el('div', null, c); art.innerHTML = A.svg; css(art, { position: 'absolute', inset: '7% 4% 5%' }); }
       }
-      const lb = el('div', 'glab', c, it.label || it.sty.name); TEXTS.push(lb.textContent);
-      return { c, art, at: t0 + j * step };
+      const lb = el('div', 'glab' + (it.fact ? ' fact' : ''), c, it.label || it.sty.name); TEXTS.push(lb.textContent);
+      let ring = null;
+      if (it.pin) { ring = el('div', 'gring', c); const ax = cw * .04, ay = ch * .07, aw2 = cw * .92, ah2 = ch * .88, k = Math.min(aw2 / 650, ah2 / 540), ox = ax + (aw2 - 650 * k) / 2, oy = ay + (ah2 - 540 * k) / 2; place(ring, ox + 650 * k * it.pin.x / 100, oy + 540 * k * it.pin.y / 100); }
+      return { c, art, ring, at: it.at != null ? +it.at : t0 + j * step };
     });
-    const tAll = t0 + (n - 1) * step + 0.5, tNote = tAll + 0.3;
+    const tAll = Math.max(...cells.map(c => c.at)) + 0.5, tNote = tAll + 0.3;
     const dur = sc.dur || Math.max(5.5, tNote + 3.2);
     const ctr = j => { const b = cells[j].c; return { x: gx + (j % cols) * (cw + gap) + cw * .92, y: gy + Math.floor(j / cols) * (ch + gap) + ch * .1 }; };
     return {
@@ -795,12 +801,14 @@
       measure() { this.dotIn = { x: gx - 2 * U, y: gy + ch * .1 }; this.dotOut = ctr(n - 1); },
       update(lt) {
         if (kick) kick.style.opacity = eo(p(lt, 0.1, 0.5));
-        cells.forEach(({ c, at }) => { const k = p(lt, at, at + 0.45); c.style.opacity = k > 0 ? Math.min(1, k * 3) : 0; c.style.transform = `scale(${(0.7 + 0.3 * back(k)).toFixed(4)})`; });
+        cells.forEach(({ c, at, ring }) => { const k = p(lt, at, at + 0.45); c.style.opacity = k > 0 ? Math.min(1, k * 3) : 0; c.style.transform = `scale(${(0.7 + 0.3 * back(k)).toFixed(4)})`;
+          if (ring) { const r = p(lt, at + 0.3, at + 0.75); ring.style.opacity = r > 0 ? 1 : 0; ring.style.transform = `translate(-50%,-50%) scale(${back(r).toFixed(4)})`; } });
         if (note) wipe(note, eio(p(lt, tNote, tNote + 1.0)));
       },
       dotAt(lt) {
         let q = this.dotIn;
-        for (let j = 0; j < n; j++) { const a = cells[j].at; if (lt >= a - step) q = arc(j ? ctr(j - 1) : this.dotIn, ctr(j), eio(p(lt, a - step, a)), 2.5 * U); }
+        const hs = Math.min(step, 0.4);
+        for (let j = 0; j < n; j++) { const a = cells[j].at; if (lt >= a - hs) q = arc(j ? ctr(j - 1) : this.dotIn, ctr(j), eio(p(lt, a - hs, a)), 2.5 * U); }
         return { ...q, s: 1 };
       },
     };

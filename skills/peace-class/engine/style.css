@@ -265,3 +265,7 @@ svg { overflow: visible; }
 .gcell.gphoto .glab { background: var(--acc); color: #111; }
 .r916 .gcell .glab { font-size: calc(var(--u) * 2.6); }
 .theme-pixel.gcell { border-radius: 0; }
+.gcell .glab.fact { left: 50%; top: auto; bottom: calc(var(--u) * .7); transform: translateX(-50%); white-space: nowrap; font-size: calc(var(--u) * 2.7); background: var(--acc); color: #111; }
+.r916 .gcell .glab.fact { font-size: calc(var(--u) * 3); }
+.gcell .gring { position: absolute; width: calc(var(--u) * 4.8); height: calc(var(--u) * 4.8); border-radius: 50%; border: calc(var(--u) * .6) solid var(--acc); box-shadow: 0 0 0 calc(var(--u) * .25) rgba(0,0,0,.35); opacity: 0; z-index: 2; }
+.theme-pixel .gcell .gring, .theme-pixel.gcell .gring { border-radius: 0; }

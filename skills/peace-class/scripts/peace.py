@@ -12,6 +12,7 @@
   python3 peace.py voice  <작업 폴더> --sample 샘플.m4a --sample-text "샘플에서 한 말"
                                                       장면마다 say(대본)를 선생님 목소리로 — 설치돼 있으면 이 작업 공간에서(토큰 · 외부 전송 없음),
                                                       아니면 허깅페이스 데모(--remote · HF_TOKEN 권장) — 본인 목소리만
+  python3 peace.py sync   <작업 폴더>                 목소리와 이름표 맞추기 — 사진 · 모아 보기의 이름표가 그 낱말을 말하는 순간에 나온다
 
 필요한 것: Python 3 표준 라이브러리만. fontTools + brotli 가 있으면 글꼴을 쓴 글자만 잘라 파일이 작아진다.
 """
@@ -160,7 +161,7 @@ def voice_setup():
         pins = [f'torch=={".".join(ta.split(".")[:2])}.*', f'torchaudio=={ta}+cpu'] if ta else ['torch', 'torchaudio']
         print('설치 중… (CPU 용 PyTorch ' + (ta or '최신') + ' · 몇 분)')
         subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *pins, '--index-url', idx], check=True)
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'qwen-tts', 'soundfile'], check=True)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'qwen-tts', 'soundfile', 'faster-whisper'], check=True)
         subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--force-reinstall', '--no-deps', *pins[1:], '--index-url', idx], check=True)
     print('모델 받는 중… (Qwen/Qwen3-TTS-12Hz-0.6B-Base · 약 1~2GB · 처음 한 번)')
     from huggingface_hub import snapshot_download
@@ -208,7 +209,7 @@ def load_lesson():
             sc['voiceData'] = b64(read(p, 'rb'), {'mp3': 'audio/mpeg', 'm4a': 'audio/mp4', 'webm': 'audio/webm', 'ogg': 'audio/ogg'}.get(ext, 'audio/wav'))
             sc['voiceDur'] = round(audio_len(p), 2)
         src = sc.get('src')   # 사진 경로 → 파일 안에 담기
-        if sc.get('type') == 'photo' and src and not src.startswith('data:'):
+        if sc.get('type') in ('photo', 'gallery') and src and not src.startswith('data:'):
             p = os.path.join(work, src)
             ext = os.path.splitext(p)[1].lower().lstrip('.')
             sc['src'] = b64(read(p, 'rb'), {'png': 'image/png', 'webp': 'image/webp', 'gif': 'image/gif', 'svg': 'image/svg+xml'}.get(ext, 'image/jpeg'))
@@ -403,6 +404,48 @@ elif cmd == 'voice':
         with open(lp, 'w', encoding='utf-8') as f:
             json.dump(L, f, ensure_ascii=False, indent=2)
     print('→ lesson.json 에 목소리를 달았어요. 이제 studio 또는 share 로 파일을 만드세요.')
+
+elif cmd == 'sync':
+    # 목소리와 이름표 맞추기: 녹음을 받아 적어(faster-whisper · 이 작업 공간에서) 이름표 낱말을 말하는 순간에 짚게 한다
+    # 사진 장면 pins[] · 모아 보기 cells[] 의 kw(없으면 이름표 첫 낱말)를 찾아 at(초)을 적는다
+    try:
+        import numpy as np
+        from faster_whisper import WhisperModel
+    except Exception:
+        sys.exit('pip install faster-whisper 를 먼저 해 주세요 (python3 peace.py voice-setup 이 함께 깔아요)')
+    lp = os.path.join(work, 'lesson.json')
+    L = json.loads(read(lp))
+    m = WhisperModel('small', device='cpu', compute_type='int8')
+    norm = lambda t: re.sub(r'[^0-9A-Za-z가-힣]', '', t)
+    for i, sc in enumerate(L['scenes']):
+        marks = sc.get('pins') if sc.get('type') == 'photo' else sc.get('cells') if sc.get('type') == 'gallery' else None
+        if not marks or not sc.get('voice'):
+            continue
+        pcm = subprocess.run([FF, '-v', 'error', '-i', os.path.join(work, sc['voice']), '-ac', '1', '-ar', '16000', '-f', 's16le', '-'], capture_output=True, check=True).stdout
+        segs, _ = m.transcribe(np.frombuffer(pcm, np.int16).astype('float32') / 32768, language='ko', word_timestamps=True, initial_prompt=sc.get('say', ''))
+        words = [w for sg in segs for w in sg.words]
+        flat, owner = '', []
+        for j, w in enumerate(words):
+            t = norm(w.word); flat += t; owner += [j] * len(t)
+        pos, last, got = 0, 0.6, []
+        for q in marks:
+            kw = norm(q.get('kw') or re.split(r'[\s·→=:(]', (q.get('label') or '').strip())[0])
+            k = -1
+            for cand in (kw, kw[:2]):
+                if cand:
+                    k = flat.find(cand, pos)
+                    if k >= 0:
+                        break
+            if k < 0:
+                got.append('?')
+                continue
+            at = max(last + 0.4, 0.35 + words[owner[k]].start)   # 녹음은 장면 시작 0.35초 뒤에 나온다
+            q['at'] = round(at, 2); last = at; pos = k + 1
+            got.append(f"{q.get('label')}@{q['at']}")
+        print(f'  장면 {i + 1:02d}: ' + ' · '.join(got))
+    with open(lp, 'w', encoding='utf-8') as f:
+        json.dump(L, f, ensure_ascii=False, indent=2)
+    print('→ 이름표가 말하는 순간에 나오도록 at 을 적었어요 (못 찾은 것은 ? · 원래 차례대로)')
 
 elif cmd == 'share':
     L = load_lesson()

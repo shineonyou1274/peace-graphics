@@ -60,13 +60,26 @@
     h('option', { value: '' }, '예시 불러오기'), ...(window.EXAMPLES || []).map((ex, i) => h('option', { value: i }, ex.name)));
   const bar = h('header', { class: 'top' },
     h('div', { class: 'brand' }, h('b', {}, '●'), ' 수업 영상 스튜디오'),
-    h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showStarter() }, '🎬 스타일 움직여 보기'), h('button', { class: 'ghost', onclick: () => showHelp() }, '처음이세요? 쓰는 법'), h('button', { class: 'ghost', onclick: () => voiceAI() }, '🗣 내 목소리 AI'), exSel,
-      h('button', { class: 'ghost', onclick: () => fileIn.click() }, '시나리오 열기'),
-      h('button', { class: 'ghost', onclick: saveJSON }, '시나리오 저장'),
-      h('button', { class: 'main', onclick: exportHTML }, '수업용 파일 저장 ↓')), fileIn);
+    h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showHelp() }, '쓰는 법'), exSel,
+      h('button', { class: 'ghost', onclick: () => fileIn.click() }, '시나리오 열기')), fileIn);
+  // 단계: 한 번에 한 가지만 — ① 스타일 · 효과 → ② 글 · 목소리 → ③ 흐름 보기 → ④ 저장
+  const STEPS = [['스타일 · 효과', '어떤 느낌으로'], ['글 · 목소리', '화면 글과 대사 고치기'], ['흐름 보기', '장면 순서대로 확인'], ['저장', '수업에 쓰기 · 보내기']];
+  let step = 1;
+  const stepBtns = STEPS.map(([a, b], k) => h('button', { class: 'stp', onclick: () => setStep(k + 1) }, h('i', {}, String(k + 1)), h('span', {}, h('b', {}, a), h('small', {}, b))));
+  const nextBtn = h('button', { class: 'next', onclick: () => setStep(Math.min(4, step + 1)) }, '');
+  const stepBar = h('nav', { class: 'stepbar' }, h('div', { class: 'stps' }, stepBtns), nextBtn);
   const left = h('aside', { class: 'left' });
   const right = h('main', { class: 'right' });
-  app.append(bar, h('div', { class: 'body' }, left, right));
+  const body = h('div', { class: 'body' }, left, right);
+  function setStep(n) {
+    step = n; body.dataset.step = n;
+    stepBtns.forEach((b, k) => { b.classList.toggle('on', k + 1 === n); b.classList.toggle('done', k + 1 < n); });
+    nextBtn.textContent = n < 4 ? `다음: ${n + 1} ${STEPS[n][0]} →` : '처음으로 ↺';
+    if (n === 4) nextBtn.onclick = () => setStep(1); else nextBtn.onclick = null;
+    scrollTo({ top: 0 }); requestAnimationFrame(() => { if (inst) fitPv(); if (n === 1) refreshGallery(); if (n === 3) refreshFlow(); });
+  }
+  nextBtn.addEventListener('click', () => { if (step < 4) setStep(step + 1); });
+  app.append(bar, stepBar, body);
 
   // 오른쪽: 스타일 고르기 · 미리보기 · 점검
   const gallery = h('div', { class: 'gallery' });
@@ -81,10 +94,25 @@
     h('label', {}, h('input', { type: 'radio', name: 'scope', checked: true, onchange: () => { onlyScene = false; refreshGallery(); } }), ' 수업 전체에'),
     h('label', {}, h('input', { type: 'radio', name: 'scope', onchange: () => { onlyScene = true; refreshGallery(); } }), ' 지금 장면에만'),
     h('button', { class: 'linkbtn', onclick: () => { L.scenes.forEach(x => delete x.style); changed(true); renderLeft(); refreshGallery(); } }, '장면별 스타일 모두 지우기'));
+  const fxBox = h('div', { class: 'fx' });
+  function renderFx() {
+    fxBox.innerHTML = '';
+    fxBox.append(
+      h('div', { class: 'fxcard' }, h('div', {}, h('small', {}, '장면 넘김'), h('b', {}, transName(L.trans))), h('button', { class: 'pill main', onclick: pickTrans }, '🎬 움직여 보고 고르기')),
+      h('div', { class: 'fxcard' }, h('div', {}, h('small', {}, '박자마다 쾅'), h('b', {}, ({ on: '켜기', off: '끄기' })[L.beat] || '스타일대로')), h('button', { class: 'pill main', onclick: pickBeat }, '🥁 움직여 보고 고르기')));
+  }
+  const pvSec = h('section', { class: 'sec-pv' }, h('h3', {}, '미리보기 ', h('small', {}, '아래 장면 번호를 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox);
+  const saveSec = h('section', { class: 'sec-save' }, h('h3', {}, '어떻게 쓸까요?'),
+    h('div', { class: 'savegrid' },
+      h('div', { class: 'savecard' }, h('b', {}, '📄 수업에 바로 쓰기'), h('p', {}, '재생 파일 하나로 저장해요. 수업 시간에 열어 재생하고, 다른 선생님께 보내도 돼요.'), h('button', { class: 'pill main', onclick: exportHTML }, '수업용 파일 저장')),
+      h('div', { class: 'savecard' }, h('b', {}, '💾 나중에 이어서 · Claude 에게 보내기'), h('p', {}, '고친 내용을 파일로 저장해요. Claude 에게 보내며 "이걸로 내 목소리 넣고 영상 만들어 줘"라고 하면 목소리와 mp4 를 만들어 줘요.'), h('button', { class: 'pill main', onclick: saveJSON }, '시나리오 저장')),
+      h('div', { class: 'savecard' }, h('b', {}, '🎬 mp4 영상'), h('p', {}, '영상 파일은 Claude 가 만들어요. 위의 시나리오 파일을 Claude 에게 보내 주세요. 목소리 샘플(10초 녹음)도 함께 보내면 선생님 목소리로 읽어 넣어요.'))));
   right.append(
-    h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '그림 위에 마우스를 올리면 움직여요 · 장면마다 다르게 해도 돼요')), scopeBox, gallery),
-    h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox),
-    h('section', {}, h('h3', {}, '4 · 흐름 보기 ', h('small', {}, '장면 순서대로 한눈에 · 그림을 누르면 미리보기로 · 아래 칸에서 대사 · 자막을 바로 고쳐요')), flow));
+    h('section', { class: 'sec-style' }, h('h3', {}, '어떤 느낌으로 만들까요? ', h('small', {}, '그림에 마우스를 올리면 움직여요')), h('div', { class: 'row-acts' }, h('button', { class: 'pill main', onclick: () => showStarter() }, '▶ 11가지를 크게 움직여 보기'), scopeBox), gallery),
+    h('section', { class: 'sec-fx' }, h('h3', {}, '효과 ', h('small', {}, '설명보다 직접 보고 골라요')), fxBox),
+    pvSec,
+    h('section', { class: 'sec-flow' }, h('h3', {}, '흐름 보기 ', h('small', {}, '장면 순서대로 · 그림을 누르면 미리보기로 · 아래 칸에서 대사 · 자막을 바로 고쳐요')), flow),
+    saveSec);
 
   function renderAll() { renderLeft(); refresh(true); }
 
@@ -102,11 +130,9 @@
         row('학년 · 단원', h('input', { value: L.unit || '', oninput: e => { L.unit = e.target.value; changed(); } })),
         row('소리', h('select', { onchange: e => { L.mood = e.target.value; changed(); } }, MOODS.map(([v, n]) => h('option', { value: v, selected: (L.mood || 'calm') === v }, n))))),
       h('div', { class: 'two' },
-        row('장면 넘김', h('button', { class: 'fxbtn', onclick: e => { e.preventDefault(); pickTrans(); } }, `🎬 ${transName(L.trans)} ▾`)),
-        row('박자마다 쾅', h('button', { class: 'fxbtn', onclick: e => { e.preventDefault(); pickBeat(); } }, `🥁 ${({ on: '켜기', off: '끄기' })[L.beat] || '스타일대로'} ▾`))),
-      h('div', { class: 'two' },
         row('자막', h('select', { onchange: e => { if (e.target.value === 'off') L.subs = 'off'; else delete L.subs; changed(true); } }, [['on', '켜기 (목소리 있는 장면)'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.subs === 'off' ? 'off' : 'on') === v }, n))))));
-    left.append(h('h3', { class: 'step' }, '2 · 시나리오 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), info);
+    left.append(h('div', { class: 'lefthead' }, h('h3', { class: 'step' }, '글 · 목소리 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), h('button', { class: 'pill', onclick: () => voiceAI() }, '🗣 내 목소리 AI')), info);
+    renderFx();
     L.scenes.forEach((sc, i) => left.append(sceneCard(sc, i)));
     left.append(addBox(L.scenes.length - 1));
   }
@@ -507,7 +533,7 @@
     stop();
     let alive = true; const live = [];
     const close = () => { alive = false; box.remove(); };
-    const pick = id => { L.style = id; close(); changed(true); renderLeft(); refreshGallery(); toast(`${PC.STYLES.find(x => x.id === id).name} 스타일로 시작해요`); };
+    const pick = id => { L.style = id; close(); changed(true); renderLeft(); setStep(1); toast(`${PC.STYLES.find(x => x.id === id).name} 스타일로 시작해요`); };
     const grid = h('div', { class: 'st-grid' });
     const box = h('div', { class: 'starter' }, h('div', { class: 'st-in' },
       h('div', { class: 'st-head' }, h('div', {}, h('h2', {}, '어떤 느낌으로 만들까요?'), h('p', {}, '설명 말고 움직이는 모습을 보고 골라 주세요. 지금 수업의 첫 장면들로 보여 드려요 · 마음에 드는 칸을 누르면 바로 시작해요')),
@@ -566,25 +592,32 @@
       try {
         const one = previewLesson(L.style); o.patch(one);
         const g = PC.mount(st, one); const k = holder.clientWidth / g.W; st.style.transform = `scale(${k})`; holder.style.height = g.H * k + 'px';
-        g.READY.then(() => live.push({ g, w: o.win(g) }));
+        g.READY.then(() => live.push({ g, w: o.win(g), slow: o.slow }));
       } catch (e) { holder.textContent = '⚠'; }
     });
     const t0 = performance.now();
-    const loop = now => { if (!alive) return; const T = (now - t0) / 1000; live.forEach(({ g, w }) => g.seek(w[0] + T % (w[1] - w[0]))); requestAnimationFrame(loop); };
+    const loop = now => { if (!alive) return; const T = (now - t0) / 1000;
+      live.forEach(({ g, w, slow }) => {
+        if (!slow) return g.seek(w[0] + T % (w[1] - w[0]));
+        const run = (w[1] - w[0]) / slow, P = 0.6 + run + 0.9, x = T % P;   // 앞뒤로 잠깐 멈추고, 넘어가는 순간만 느리게
+        g.seek(x < 0.6 ? w[0] : x < 0.6 + run ? w[0] + (x - 0.6) * slow : w[1]);
+      });
+      requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   }
-  const edge = g => { const s1 = g.SCENES[1] || g.SCENES[0]; return [Math.max(0, s1.t0 - 1.0), Math.min(g.DUR - 0.01, s1.t0 + 1.6)]; };
+  const edge = g => { const s1 = g.SCENES[1] || g.SCENES[0]; return [Math.max(0, s1.t0 - 0.75), Math.min(g.DUR - 0.01, s1.t0 + 1.1)]; };
   function pickTrans() {
-    const opts = [{ id: '', name: '스타일대로', sub: `지금 스타일(${(PC.STYLES.find(x => x.id === L.style) || PC.STYLES[0]).name})에 맞춘 넘김`, patch: () => {}, win: edge },
-      ...(PC.TRANS || []).map(([id, name, sub]) => ({ id, name, sub, patch: one => { one.trans = id; }, win: edge }))];
-    fxPicker('장면이 어떻게 넘어갈까요?', '장면과 장면 사이를 움직이는 모습으로 보여 드려요 · 마음에 드는 칸을 누르세요', opts, L.trans || '', id => { if (id) L.trans = id; else delete L.trans; changed(true); renderLeft(); });
+    const opts = [{ id: '', name: '스타일대로', sub: `${(PC.STYLES.find(x => x.id === L.style) || PC.STYLES[0]).name} 스타일의 넘김`, patch: one => { one.beat = 'off'; }, win: edge, slow: 0.3 },
+      ...(PC.TRANS || []).map(([id, name, sub]) => ({ id, name, sub, patch: one => { one.trans = id; one.beat = 'off'; }, win: edge, slow: 0.3 }))];
+    fxPicker('장면이 어떻게 넘어갈까요?', '1번 장면이 2번 장면으로 넘어가는 순간만 느리게 되풀이해 보여 드려요 · 마음에 드는 칸을 누르세요', opts, L.trans || '', id => { if (id) L.trans = id; else delete L.trans; changed(true); renderLeft(); });
   }
   function pickBeat() {
-    const w = g => [0, Math.min(g.DUR - 0.01, Math.max(4, (g.SCENES[0] || {}).dur || 4) + 2)];
+    const w = g => [1.5, Math.min(g.DUR - 0.01, 7.5)];
     const opts = [['', '스타일대로', '형광 · 팝 · 픽셀 · 예고편만 켜짐'], ['on', '켜기', '배경음 박자마다 화면이 살짝 쾅'], ['off', '끄기', '차분하게 · 글 읽기에 집중']]
-      .map(([id, name, sub]) => ({ id, name, sub, patch: one => { if (id) one.beat = id; }, win: w }));
-    fxPicker('박자마다 쾅 할까요?', '배경음 박자에 맞춰 화면이 살짝 튀는 효과예요 · 움직임을 보고 골라 주세요', opts, L.beat || '', id => { if (id) L.beat = id; else delete L.beat; changed(true); renderLeft(); });
+      .map(([id, name, sub]) => ({ id, name, sub, patch: one => { if (id) one.beat = id; one.beatGain = 3; }, win: w }));   // 미리보기는 3배로 크게
+    fxPicker('박자마다 쾅 할까요?', '배경음 박자에 맞춰 화면이 쾅 튀는 효과예요 · 잘 보이게 3배로 크게 보여 드려요(실제는 더 살짝) · 움직임을 보고 골라 주세요', opts, L.beat || '', id => { if (id) L.beat = id; else delete L.beat; changed(true); renderLeft(); });
   }
+  setStep(1);
   setTimeout(showStarter, 300);
 
   // 지난 작업이 있으면 알려 준다

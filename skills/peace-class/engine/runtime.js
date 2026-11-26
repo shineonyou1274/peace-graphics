@@ -1000,8 +1000,9 @@
       useStyle(s.STY); const want = s.sc.trans || L.trans, TRK = TRANS.some(x => x[0] === want) ? want : STY.tr;   // 장면 넘김: 장면 · 수업 · 스타일 차례
       try { s.update(lt); } catch (e) { /* 고치는 중 빈 값 */ }
       const isLast = s === scenes.at(-1);
-      const kin = eo(p(lt, 0, 0.22)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.42, s.dur));
+      const kin = eo(p(lt, 0, 0.4)), kout = isLast ? 0 : eio(p(lt, s.dur - 0.55, s.dur));   // 넘김은 눈에 보이게(들어오기 0.4초 · 나가기 0.55초)
       const ti = 1 - kin, rs = s.root.style; rs.opacity = kin * (1 - kout); rs.filter = ''; rs.clipPath = ''; rs.transform = ''; rs.transformOrigin = '';
+      const blur = b => b > 0.05 ? `blur(${b.toFixed(2)}px)` : '';
       switch (TRK) {
         case 'zoom': {   // 끝없는 줌: 점이 있는 곳으로 빨려 들어가고, 다음 장면은 그 점에서 열린다
           const kz = eo(p(lt, 0, 0.45));
@@ -1009,19 +1010,19 @@
           else if (kz < 1) { const o = s.dotIn || { x: W / 2, y: H / 2 }; rs.transformOrigin = `${o.x}px ${o.y}px`; rs.transform = `scale(${0.2 + 0.8 * kz})`; rs.opacity = kz; }
           break;
         }
-        case 'ink': rs.filter = (ti + kout) > 0.01 ? `blur(${ti * 7 + kout * 12}px)` : ''; break;                     // 먹이 번지듯
-        case 'paper': rs.transform = `translateY(${(ti * 7 + kout * 3) * U}px) rotate(${-ti * 4 + kout * 3}deg)`; break; // 색종이를 붙였다 뗀다
-        case 'pixel': rs.opacity = 1; rs.clipPath = kout > 0 ? `inset(0 0 0 ${Math.ceil(kout * 8) / 8 * 100}%)` : (ti > 0 ? `inset(0 ${Math.ceil(ti * 8) / 8 * 100}% 0 0)` : ''); break;
-        case 'cinema': { const kc = eo(p(lt, 0, 0.7)); rs.opacity = kc * (1 - kout); rs.transform = `scale(${0.96 + 0.04 * Math.min(1, lt / (s.dur - 0.5))})`; break; }   // 검게 열렸다 닫히며 천천히 다가간다
-        case 'page': rs.transform = `translateX(${(ti * 5 - kout * 5) * U}px)`; break;                    // 지면 넘기기
-        case 'erase': rs.filter = kout > 0.01 ? `blur(${kout * 14}px)` : ''; rs.opacity = kin * (1 - kout * kout); break;   // 지우개
-        case 'flip': rs.transform = `translateY(${(ti * 3 - kout * 6) * U}px) rotate(${-kout * 2}deg)`; break; // 공책 넘기기
-        case 'pop': rs.transform = `scale(${kin < 1 ? 0.9 + 0.1 * back(kin) : 1 + kout * 0.08})`; break;     // 통통
-        case 'fade': break;
+        case 'ink': rs.filter = blur(ti * 14 + kout * 20); rs.transform = `scale(${1 + kout * 0.06 - ti * 0.03})`; break;                       // 먹이 번지듯 풀렸다 맺힌다
+        case 'paper': rs.transform = `translateY(${(kout * 40 - ti * 30) * U}px) rotate(${kout * 10 - ti * 8}deg)`; break;                     // 색종이를 떼어 아래로 · 새 종이를 위에서 붙인다
+        case 'pixel': rs.opacity = 1; rs.clipPath = kout > 0 ? `inset(0 0 0 ${Math.ceil(kout * 8) / 8 * 100}%)` : (ti > 0 ? `inset(0 ${Math.ceil(ti * 8) / 8 * 100}% 0 0)` : ''); break;   // 블록이 칸칸이
+        case 'cinema': { const kc = eo(p(lt, 0, 0.9)); rs.opacity = kc * (1 - kout); rs.transform = `scale(${(0.96 + 0.04 * Math.min(1, lt / (s.dur - 0.5)) + kout * 0.12).toFixed(4)})`; break; }   // 어둠에서 떠올라 다가가다 밀려 나간다
+        case 'page': rs.transform = `translateX(${(ti * 0.45 - kout * 0.45) * W}px) rotate(${(ti * 2 - kout * 2).toFixed(2)}deg)`; break;     // 지면 넘기기: 옆으로 넘어간다
+        case 'erase': rs.filter = blur(kout * 18); rs.transform = kout > 0 ? `scaleX(${1 + kout * 0.25})` : ''; rs.transformOrigin = '0 50%'; rs.opacity = kin * (1 - kout * kout); break;   // 지우개로 옆으로 문질러 지운다
+        case 'flip': rs.transformOrigin = kout > 0 ? '50% 0' : '50% 100%'; rs.transform = `perspective(${1.4 * W}px) rotateX(${(kout * -80 + ti * 60).toFixed(2)}deg)`; break;   // 공책 장을 위로 넘긴다
+        case 'pop': rs.transform = `scale(${kin < 1 ? (0.5 + 0.5 * back(kin)).toFixed(4) : (1 - kout * 0.6).toFixed(4)})`; break;               // 통통: 튀어나왔다 쏙 들어간다
+        case 'fade': break;                                                                                                                  // 살며시
         case 'wipe': rs.clipPath = kout > 0 ? `inset(0 0 0 ${kout * 100}%)` : (kin < 1 ? `inset(0 ${ti * 100}% 0 0)` : ''); rs.opacity = 1; break; // 설계도 긋기
-        default: rs.transform = `translateY(${-kout * 2.4 * U}px)`; rs.filter = kout > 0.01 ? `blur(${kout * 8}px)` : '';
+        default: rs.transform = `translateY(${(-kout * 14 + ti * 10) * U}px)`; rs.filter = blur(kout * 10); break;                              // 흐려지며 위로
       }
-      const pk = punch(t, STY); if (pk > 0.01) rs.transform = (rs.transform || '') + ` scale(${1 + 0.02 * pk})`;
+      const pk = punch(t, STY); if (pk > 0.01) rs.transform = (rs.transform || '') + ` scale(${1 + 0.03 * (+L.beatGain || 1) * pk})`;   // beatGain: 스튜디오 미리보기에서 크게
       labTR.innerHTML = `<b>${String(s.i + 1).padStart(2, '0')}</b> / ${String(scenes.length).padStart(2, '0')}`;
     }
     // 점

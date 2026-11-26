@@ -154,7 +154,7 @@
       h('div', { class: 'two' },
         row('자막', h('select', { onchange: e => { if (e.target.value === 'off') L.subs = 'off'; else delete L.subs; changed(true); } }, [['on', '켜기 (목소리 있는 장면)'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.subs === 'off' ? 'off' : 'on') === v }, n)))),
         row('영상 왼쪽 아래 이름', h('input', { value: L.brand || '', placeholder: 'PEACE CLASS (예: 3학년 2반 · 내 채널 이름)', oninput: e => { L.brand = e.target.value; if (!L.brand.trim()) delete L.brand; changed(); } }))));
-    left.append(h('div', { class: 'lefthead' }, h('h3', { class: 'step' }, '글 · 목소리 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), h('button', { class: 'pill', onclick: () => voiceAI() }, '🗣 내 목소리 AI')), info);
+    left.append(h('div', { class: 'lefthead' }, h('h3', { class: 'step' }, '글 · 목소리 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), h('div', { class: 'lhb' }, h('button', { class: 'pill', onclick: () => fromScript() }, '📝 원고로 장면 만들기'), h('button', { class: 'pill', onclick: () => voiceAI() }, '🗣 내 목소리 AI'))), info);
     renderFx();
     L.scenes.forEach((sc, i) => left.append(sceneCard(sc, i)));
     left.append(addBox(L.scenes.length - 1));
@@ -547,6 +547,68 @@
       h('ul', {}, li('윈도우: 수업용 파일을 열고 F(전체 화면) → Win + Alt + R 로 녹화 시작, 끝나면 다시 Win + Alt + R. 소리도 함께 녹화돼요(동영상 폴더 → 캡처).', '맥: 화면 기록(⌘ + Shift + 5)은 소리가 함께 녹화되지 않아요. Claude 에게 시나리오 파일을 주고 mp4 를 부탁하세요.'))));
     document.body.append(box);
   }
+  // ---------- 빈 수업 · 원고로 장면 만들기 ----------
+  const keepInfo = () => ({ subject: L.subject, unit: '', ratio: L.ratio || '16:9', style: L.style || 'dark', mood: L.mood || 'calm', ...(L.subs ? { subs: L.subs } : {}), ...(L.brand ? { brand: L.brand } : {}) });
+  async function replaceLesson(next, msg) {
+    if (dirty > 0 && !await uiAsk(`${msg} 지금 고친 내용은 사라져요. 남기려면 먼저 4단계 「시나리오 저장」을 해 두세요.`, '새로 시작', '그만두기')) return false;
+    L = next; cur = 0; dirty = 1; renderAll(); setStep(2); return true;
+  }
+  function startBlank() {
+    replaceLesson({ title: '새 수업', ...keepInfo(), scenes: [{ type: 'title', title: '제목', sub: '손글씨 한 줄' }, { type: 'end', text: '마무리 한 마디', sub: '' }] }, '빈 수업으로 시작할까요?')
+      .then(ok => ok && toast('빈 수업이에요 · 「+ 장면 더하기」로 장면을 늘려 보세요'));
+  }
+  // 원고 → 장면(규칙): 첫 줄 = 제목 · "용어: 설명" = 개념 · "1. / - " 로 시작하는 줄들 = 과정(바로 앞 "…:" 줄이 제목)
+  //   · "1392 …" 처럼 숫자(때)로 시작하는 줄 2개 이상 = 연표 · 나머지 글 = 2줄씩 한 장면 · 마지막 글 줄 = 마무리. 줄마다 대사(say)도 채운다
+  function parseScript(txt) {
+    const lines = String(txt).replace(/\r/g, '').split('\n').map(x => x.trim()).filter(Boolean);
+    if (!lines.length) return null;
+    const unb = x => x.replace(/\[\[|\]\]/g, '');
+    const josa = w => { const c = w.charCodeAt(w.length - 1) - 0xAC00; return c >= 0 && c <= 11171 && c % 28 ? '은' : '는'; };   // 받침 있으면 은
+    const scenes = [], say = x => unb(x).replace(/\s+/g, ' ').trim();
+    const title = lines.shift().replace(/^#+\s*/, '');
+    scenes.push({ type: 'title', title: unb(title).slice(0, 30), sub: '', say: `오늘은 ${say(title)}에 대해 알아볼 거예요.` });
+    let endLine = null;
+    if (lines.length && !/^(\d+[.)]|[-•·*])\s|^.{1,15}\s*:\s*\S/.test(lines.at(-1)) && !/:$/.test(lines.at(-1))) endLine = lines.pop();
+    let buf = [];
+    const flush = () => { while (buf.length) { const part = buf.splice(0, 2); scenes.push({ type: 'steps', title: '', tex: false, keep: true, size: 4.6, lines: part, say: part.map(say).join(' ') }); } };
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i];
+      const list = []; let j = i;
+      while (j < lines.length && /^(\d+[.)]|[-•·*])\s+/.test(lines[j])) { list.push(lines[j].replace(/^(\d+[.)]|[-•·*])\s+/, '')); j++; }
+      if (list.length >= 2) { flush(); const head = scenes.length && buf.length === 0 && /:$/.test(lines[i - 1] || '') ? lines[i - 1].replace(/:$/, '') : ''; scenes.push({ type: 'process', title: unb(head || '과정').slice(0, 30), steps: list.map(x => unb(x).slice(0, 40)), say: (head ? say(head) + '. ' : '') + list.map(say).join(', ') + '.' }); i = j - 1; continue; }
+      const tl = []; j = i;
+      while (j < lines.length && /^(\d{1,4}(년|세기)?|[가-힣]{0,3}\d{1,4}[년월일]?)\s+\S/.test(lines[j]) && !/^\d+[.)]/.test(lines[j])) { const m = lines[j].match(/^(\S+)\s+(.+)$/); tl.push([m[1], unb(m[2]).slice(0, 24)]); j++; }
+      if (tl.length >= 2) { flush(); scenes.push({ type: 'timeline', title: '', events: tl.slice(0, 6), say: tl.map(([a, b]) => `${a}, ${b}`).join('. ') + '.' }); i = j - 1; continue; }
+      if (/:$/.test(ln) && j < lines.length && /^(\d+[.)]|[-•·*])\s/.test(lines[i + 1] || '')) continue;   // 다음 과정의 제목
+      const m = ln.match(/^([^:：]{1,15})\s*[:：]\s*(.+)$/);
+      if (m) { flush(); const keys = [...m[2].matchAll(/\[\[([^\]]+)\]\]/g)].map(x => x[1]); scenes.push({ type: 'concept', term: m[1].trim(), text: unb(m[2]), keys, say: `${m[1].trim()}${josa(m[1].trim())} ${say(m[2])}` }); continue; }
+      buf.push(ln);
+    }
+    flush();
+    scenes.push({ type: 'end', text: endLine ? unb(endLine).slice(0, 26) : '오늘 배운 것, 기억해요', sub: '', say: endLine ? say(endLine) : '' });
+    return { title: unb(title).slice(0, 30), scenes };
+  }
+  function fromScript() {
+    const EX = '광합성\n광합성: 식물이 [[빛에너지]]로 물과 이산화 탄소에서 양분을 만드는 과정\n재료가 들어오는 길:\n1. 뿌리가 물을 흡수한다\n2. 잎의 기공으로 이산화 탄소가 들어온다\n3. 엽록체가 빛을 받아 포도당을 만든다\n포도당은 녹말로 바뀌어 저장된다.\n산소는 기공으로 나간다.\n잎은 빛으로 밥을 짓는다';
+    const ta = h('textarea', { rows: 12, class: 'scr', placeholder: EX });
+    const pv = h('div', { class: 'scrpv' }, '원고를 붙여 넣으면 어떤 장면이 생길지 여기 보여요');
+    const upd = () => { const r = parseScript(ta.value); pv.textContent = r ? `장면 ${r.scenes.length}개: ` + r.scenes.map(x => x.type === 'steps' && x.tex === false ? '글' : (TYPES[x.type]?.name || x.type)).join(' → ') : '원고를 붙여 넣으면 어떤 장면이 생길지 여기 보여요'; };
+    ta.addEventListener('input', upd);
+    const box = h('div', { class: 'ask big' }, h('div', {},
+      h('h3', {}, '📝 원고 붙여넣기로 장면 만들기'),
+      h('p', {}, '수업 원고를 붙여 넣으면 줄마다 장면을 만들어요. 대사(목소리 · 자막용)도 같이 채워요. 만든 뒤 2단계에서 고치면 돼요.'),
+      h('ul', { class: 'rules' },
+        h('li', {}, h('b', {}, '첫 줄'), ' → 제목'),
+        h('li', {}, h('b', {}, '용어: 설명'), ' → 개념 (', h('code', {}, '[[말]]'), ' 로 묶으면 형광펜)'),
+        h('li', {}, h('b', {}, '1. 2. 3. 또는 - 로 시작하는 줄들'), ' → 과정 (바로 앞 줄을 "…:" 로 끝내면 그 제목)'),
+        h('li', {}, h('b', {}, '1392 조선 건국'), ' 처럼 때로 시작하는 줄 2개 이상 → 연표'),
+        h('li', {}, h('b', {}, '나머지 글'), ' → 두 줄씩 한 장면 · ', h('b', {}, '마지막 줄'), ' → 마무리')),
+      ta, pv,
+      h('div', { class: 'btns' }, h('button', { class: 'ghost', onclick: () => box.remove() }, '그만두기'), h('button', { class: 'ghost', onclick: () => { ta.value = EX; upd(); } }, '예시 넣어 보기'),
+        h('button', { class: 'main', onclick: async () => { const r = parseScript(ta.value); if (!r) return uiSay('원고를 먼저 붙여 넣어 주세요.'); box.remove(); if (await replaceLesson({ ...keepInfo(), ...r }, '이 원고로 새 수업을 만들까요?')) toast(`장면 ${r.scenes.length}개를 만들었어요 · 미리보기로 확인하고 고쳐 보세요`); } }, '장면 만들기'))));
+    document.body.append(box); ta.focus();
+  }
+
   // ---------- 영상 파일로 저장: 한 번 재생하며 영상 칸만 녹화(탭 화면 공유 + 영역 자르기) · 소리는 페이지 안에서 바로 ----------
   async function recordVideo() {
     if (IN_ART) return uiSay('Claude 화면 안에서는 영상 녹화를 할 수 없어요. 웹 주소(브라우저)로 열거나 내려받은 스튜디오 파일에서 해 주세요.');
@@ -610,7 +672,7 @@
     const grid = h('div', { class: 'st-grid' });
     const box = h('div', { class: 'starter' }, h('div', { class: 'st-in' },
       h('div', { class: 'st-head' }, h('div', {}, h('h2', {}, '어떤 느낌으로 만들까요?'), h('p', {}, '설명 말고 움직이는 모습을 보고 골라 주세요. 지금 수업의 첫 장면들로 보여 드려요 · 마음에 드는 칸을 누르면 바로 시작해요')),
-        h('div', { class: 'st-acts' }, h('button', { class: 'ghost', onclick: () => { close(); showHelp(); } }, '처음이세요? 쓰는 법'), h('button', { class: 'ghost', onclick: close }, `지금 스타일(${(PC.STYLES.find(x => x.id === L.style) || PC.STYLES[0]).name})로 시작`))),
+        h('div', { class: 'st-acts' }, h('button', { class: 'ghost hi', onclick: () => { close(); startBlank(); } }, '📄 빈 수업으로 시작'), h('button', { class: 'ghost hi', onclick: () => { close(); fromScript(); } }, '📝 원고 붙여넣기로 시작'), h('button', { class: 'ghost', onclick: () => { close(); showHelp(); } }, '처음이세요? 쓰는 법'), h('button', { class: 'ghost', onclick: close }, `지금 스타일(${(PC.STYLES.find(x => x.id === L.style) || PC.STYLES[0]).name})로 시작`))),
       grid));
     document.body.append(box);
     PC.STYLES.forEach((S, j) => {

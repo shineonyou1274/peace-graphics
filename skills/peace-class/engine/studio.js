@@ -1,4 +1,4 @@
-/* 수업 영상 스튜디오 — 선생님이 스타일을 눈으로 고르고, 시나리오를 화면에서 고치고, 수업용 파일로 저장한다.
+/* shiny-peace 수업영상제작소(스튜디오) — 선생님이 스타일을 눈으로 고르고, 시나리오를 화면에서 고치고, 수업용 파일로 저장한다.
  * 이 파일 하나에 엔진 · 글꼴 · 수식이 다 들어 있다(인터넷 · 설치 없음).
  */
 (() => {
@@ -59,7 +59,7 @@
   const exSel = h('select', { class: 'ghost', onchange: async e => { const ex = window.EXAMPLES[+e.target.value]; e.target.value = ''; if (ex && await uiAsk(`예시 "${ex.name}" 을(를) 불러올까요? 지금 고친 내용은 사라져요.`, '불러오기', '그만두기')) { L = clone(ex.lesson); L.style = L.style || L.theme || 'dark'; delete L.theme; cur = 0; renderAll(); } } },
     h('option', { value: '' }, '예시 불러오기'), ...(window.EXAMPLES || []).map((ex, i) => h('option', { value: i }, ex.name)));
   const bar = h('header', { class: 'top' },
-    h('div', { class: 'brand' }, h('b', {}, '●'), ' 수업 영상 스튜디오', h('a', { class: 'by', href: 'https://github.com/shineonyou1274/peace-graphics', target: '_blank', rel: 'noopener', title: '만든 사람 · 안내서' }, 'by shiny-peace')),
+    h('a', { class: 'brand', href: 'https://github.com/shineonyou1274/peace-graphics', target: '_blank', rel: 'noopener', title: '만든 사람 · 안내서' }, h('b', {}, '●'), h('span', { class: 'sp' }, 'shiny-peace'), ' 수업영상제작소'),
     h('div', { class: 'acts' }, h('button', { class: 'ghost', onclick: () => showHelp() }, '쓰는 법'), exSel,
       h('button', { class: 'ghost', onclick: () => fileIn.click() }, '시나리오 열기')), fileIn);
   // 단계: 한 번에 한 가지만 — ① 스타일 · 효과 → ② 글 · 목소리 → ③ 흐름 보기 → ④ 저장

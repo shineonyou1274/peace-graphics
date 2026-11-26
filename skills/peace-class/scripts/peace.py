@@ -1,7 +1,7 @@
 """peace-class 한 줄 명령 — 수업 시나리오(lesson.json) → 스튜디오 · 수업용 파일 · (선택) 영상.
 
   python3 peace.py new    <작업 폴더> [--from 예시]   새 작업 폴더 (예시: science-photosynthesis · math-slope · history-joseon · math-data)
-  python3 peace.py studio <작업 폴더>                 ★ 수업 영상 스튜디오 파일 하나 — 선생님이 스타일을 눈으로 고르고 · 글을 고치고 · 녹음하고 · 수업용 파일로 저장
+  python3 peace.py studio <작업 폴더>                 ★ 수업영상제작소(스튜디오) 파일 하나 — 선생님이 스타일을 눈으로 고르고 · 글을 고치고 · 녹음하고 · 수업용 파일로 저장
   python3 peace.py share  <작업 폴더>                 수업용 파일 하나(재생기) — 글꼴 · 수식 · 소리 포함 · 어디서나 재생
   python3 peace.py build  <작업 폴더>                 렌더용 lesson.html (check · video 가 쓴다)
   python3 peace.py check  <작업 폴더>                 점검 · 정지 화면 시트 · 화면 글자 목록 · 소리   (Node + Playwright 가 있을 때)
@@ -312,14 +312,14 @@ def examples():
     for f in sorted(os.listdir(os.path.join(SKILL, 'examples'))):
         if f.endswith('.json'):
             L = json.loads(read(os.path.join(SKILL, 'examples', f)))
-            out.append({'name': f"{L.get('subject', '')} · {L.get('title', f)}", 'lesson': L})
+            out.append({'name': ' · '.join(x for x in (L.get('subject'), L.get('title', f)) if x), 'lesson': L})
     return out
 
 
-def studio_html(L, path):
+def studio_html(L, path, tab=None):
     style, kcss, kjs, rt = inline_assets(None)   # 스튜디오는 무슨 글이든 칠 수 있게 글꼴 통째로
     tpl = read(os.path.join(ENG, 'studio.html'))
-    rep = {'{{TITLE}}': L.get('title', '수업'), '{{KATEX_CSS}}': kcss, '{{STYLE}}': style, '{{STUDIO_CSS}}': read(os.path.join(ENG, 'studio.css')),
+    rep = {'{{TITLE}}': tab or f"{L.get('title', '수업')} · shiny-peace 수업영상제작소", '{{KATEX_CSS}}': kcss, '{{STYLE}}': style, '{{STUDIO_CSS}}': read(os.path.join(ENG, 'studio.css')),
            '{{KATEX_JS}}': kjs, '{{RUNTIME}}': rt, '{{LESSON}}': dumps(L), '{{EXAMPLES}}': dumps(examples()),
            '{{STUDIO_JS}}': read(os.path.join(ENG, 'studio.js')).replace('</script', '<\\/script')}
     for k, v in rep.items():
@@ -347,8 +347,8 @@ elif cmd == 'studio':
 elif cmd == 'blank':
     ex = examples()
     os.makedirs(os.path.dirname(work) or '.', exist_ok=True)
-    first = next((e for e in ex if e['lesson'].get('title') == '광합성'), ex[0])   # 처음 여는 선생님께는 16:9 과학 예시
-    studio_html(first['lesson'], work)
+    first = next((e for e in ex if e['lesson'].get('title') == '수업영상제작소'), ex[0])   # 처음 여는 선생님께는 제작소 소개(교과 예시는 '예시 불러오기')
+    studio_html(first['lesson'], work, tab='shiny-peace 수업영상제작소')
 
 elif cmd == 'voice':
     # 선생님 목소리 샘플 → 장면마다 대본(say)을 그 목소리로 (Qwen3-TTS · Apache-2.0 공개 모델, 허깅페이스 Space)

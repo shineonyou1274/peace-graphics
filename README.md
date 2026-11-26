@@ -1,12 +1,12 @@
-# 🎬 Peace Graphics — 선생님을 위한 수업 영상 스튜디오
+# 🎬 shiny-peace 수업영상제작소
 
-**by shiny-peace** (Shiny Peace Studio)
+선생님을 위한 수업 모션 그래픽 스튜디오 · **by shiny-peace** (Shiny Peace Studio)
 
 **수업 원고를 30초~1분짜리 수업 모션 그래픽으로.** 형광 점 하나가 제목을 밝히고, 핵심 말에 형광펜을 칠하고, 그래프를 그리고, 마침표가 됩니다.
 스타일을 눈으로 고르고, 글을 화면에서 고치고, 내 목소리와 사진을 넣어 **파일 하나**로 저장합니다.
 
 > ## ▶ 지금 바로 열기 — 받지 않아도 돼요
-> **[수업 영상 스튜디오 열기](https://shineonyou1274.github.io/peace-graphics/download/%EC%88%98%EC%97%85%EC%98%81%EC%83%81%EC%8A%A4%ED%8A%9C%EB%94%94%EC%98%A4.html)** · [완성 예시(광합성) 보기](https://shineonyou1274.github.io/peace-graphics/download/%EC%98%88%EC%8B%9C_%EA%B4%91%ED%95%A9%EC%84%B1_%EC%88%98%EC%97%85%EC%9A%A9.html)
+> **[수업영상제작소 열기](https://shineonyou1274.github.io/peace-graphics/download/%EC%88%98%EC%97%85%EC%98%81%EC%83%81%EC%8A%A4%ED%8A%9C%EB%94%94%EC%98%A4.html)** · [완성 예시(광합성) 보기](https://shineonyou1274.github.io/peace-graphics/download/%EC%98%88%EC%8B%9C_%EA%B4%91%ED%95%A9%EC%84%B1_%EC%88%98%EC%97%85%EC%9A%A9.html)
 > 크롬 · 엣지 · 웨일에서 누르면 바로 열려요. 내 컴퓨터에 두고 인터넷 없이 쓰려면 아래 안내대로 파일을 받으세요.
 
 > ## 🔰 만드는 길은 두 가지예요

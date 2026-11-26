@@ -91,6 +91,27 @@
   };
   const ARTS = { leaf: '잎' }; let artN = 0;
 
+  // 대사를 자막 토막으로: 문장 → 길면 쉼표 → 그래도 길면 띄어쓰기에서(한 토막 26자 안팎)
+  const chunkSay = t => {
+    const MAX = 26, out = [];
+    const even = x => {   // 길면 고르게 나눈다(끝에 한 낱말만 남지 않게)
+      const n = Math.ceil(x.length / MAX), res = []; let rest = x;
+      for (let k = n; k > 1; k--) { const goal = rest.length / k; let best = -1; for (let i = 0; i < rest.length; i++) if (rest[i] === ' ' && (best < 0 || Math.abs(i - goal) < Math.abs(best - goal))) best = i; if (best < 0) break; res.push(rest.slice(0, best)); rest = rest.slice(best + 1); }
+      res.push(rest); return res;
+    };
+    const sents = (String(t).replace(/\s+/g, ' ').trim().match(/[^.?!…]+[.?!…]*[\"'”’]?/g) || []).map(x => x.trim()).filter(Boolean);
+    for (const se of sents) {
+      if (se.length <= MAX) { out.push(se); continue; }
+      let buf = '';
+      for (const piece of se.split(/(?<=,)\s*/)) {
+        if ((buf + ' ' + piece).trim().length <= MAX) buf = (buf + ' ' + piece).trim();
+        else { if (buf) out.push(buf); buf = piece; }
+        if (buf.length > MAX) { even(buf).slice(0, -1).forEach(x => out.push(x)); buf = even(buf).at(-1); }
+      }
+      if (buf) out.push(buf);
+    }
+    return out;
+  };
   function mount(stage, L, opt = {}) {
   const R = L.ratio === '9:16';
   const W = R ? 1080 : 1920, H = R ? 1920 : 1080, U = Math.min(W, H) / 100;
@@ -934,6 +955,20 @@
   });
   let acc = 0; scenes.forEach(s => { s.t0 = acc; acc += s.dur; s.hits.forEach(([t, k]) => HITS.push({ t: +(s.t0 + t).toFixed(3), kind: k, scene: s.i + 1 })); });
   const DUR = acc;
+  // 자막: 목소리가 있는 장면의 대사(say)를 아래에 한 토막씩 — sc.cues[{t, text}](sync 가 적은 말하는 때)가 없으면 글자 수로 나눈다. L.subs = 'off' 면 끈다
+  const SUBS = L.subs !== 'off';
+  const subEl = el('div', 'subs', stage), subTx = el('span', null, subEl); subEl.style.display = 'none';
+  css(subEl, R ? { left: px(S.x), width: px(S.w), top: px(S.y + S.h + 2 * U) } : { left: px(S.x), width: px(S.w), top: px(S.y + S.h + 1.2 * U) });
+  scenes.forEach(s => {
+    const sc = s.sc; s.cues = null;
+    if (!SUBS || !sc.say || !(sc.voiceDur || sc.voiceData)) return;
+    let cs = Array.isArray(sc.cues) && sc.cues.length ? sc.cues.map(c => ({ t: +c.t, text: c.text })) : null;
+    if (!cs) {
+      const parts = chunkSay(sc.say), n = parts.reduce((a, x) => a + x.replace(/\s/g, '').length, 0) || 1, d = Math.max(1, (sc.voiceDur || s.dur - 1.5) - 0.35);
+      let at = 0.35; cs = parts.map(x => { const c = { t: at, text: x }; at += d * x.replace(/\s/g, '').length / n; return c; });
+    }
+    s.cues = cs; s.cueEnd = 0.35 + (sc.voiceDur || s.dur - 1) + 0.15;
+  });
   HITS.sort((a, b) => a.t - b.t);
 
   // 장면 사이 점 옮기기 (아크 · 스쿼시 앤 스트레치)
@@ -950,6 +985,9 @@
   const seek = t => {
     t = clamp(t, 0, DUR - 1e-4);
     const act = scenes.find(s => t >= s.t0 && t < s.t0 + s.dur) || scenes.at(-1); applyTheme(act.STY);
+    { const lt = t - act.t0, cs = act.cues; let c = null;
+      if (cs && lt < act.cueEnd) for (const x of cs) if (lt >= x.t) c = x;
+      if (c) { if (subTx.textContent !== c.text) subTx.textContent = c.text; subEl.style.display = ''; } else subEl.style.display = 'none'; }
     if (STY.steps) t = Math.floor(t * STY.steps) / STY.steps;   // 종이 공작 · 픽셀: 뚝뚝 끊기는 움직임
     for (const s of scenes) {
       const lt = t - s.t0, on = lt >= -0.0001 && lt < s.dur;
@@ -1199,7 +1237,7 @@
     });
   }
 
-  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
+  window.PeaceClass = { mount, player, STYLES, wav, wavBase64, ARTS, chunkSay, artURL: (n, sid = 'grid', acc = '#0077b6') => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artSVG(n, sid, acc).svg) };
   // 수업용 파일 · 렌더용 페이지: LESSON 과 #stage 가 있으면 바로 띄운다
   const st = document.getElementById('stage');
   if (window.LESSON && st && !window.__NO_AUTO__) {

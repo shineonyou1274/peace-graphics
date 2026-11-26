@@ -67,6 +67,7 @@
   const playBtn = h('button', { class: 'play', onclick: () => toggle() }, '▶ 재생');
   const timeEl = h('span', { class: 'time' }, '0:00');
   const qaBox = h('div', { class: 's-qa' });
+  const flow = h('div', { class: 'flow' });
   let onlyScene = false;
   const scopeBox = h('div', { class: 'scope' },
     h('label', {}, h('input', { type: 'radio', name: 'scope', checked: true, onchange: () => { onlyScene = false; refreshGallery(); } }), ' 수업 전체에'),
@@ -74,7 +75,8 @@
     h('button', { class: 'linkbtn', onclick: () => { L.scenes.forEach(x => delete x.style); changed(true); renderLeft(); refreshGallery(); } }, '장면별 스타일 모두 지우기'));
   right.append(
     h('section', {}, h('h3', {}, '1 · 스타일 고르기 ', h('small', {}, '지금 고른 장면이 스타일마다 어떻게 보이는지 · 장면마다 다르게 해도 돼요')), scopeBox, gallery),
-    h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox));
+    h('section', {}, h('h3', {}, '3 · 미리보기 ', h('small', {}, '장면을 누르면 그 장면으로 · 스페이스 = 재생')), pvWrap, h('div', { class: 'ctl' }, playBtn, timeEl, chips), qaBox),
+    h('section', {}, h('h3', {}, '4 · 흐름 보기 ', h('small', {}, '장면 순서대로 한눈에 · 그림을 누르면 미리보기로 · 아래 칸에서 대사 · 자막을 바로 고쳐요')), flow));
 
   function renderAll() { renderLeft(); refresh(true); }
 
@@ -93,7 +95,9 @@
         row('소리', h('select', { onchange: e => { L.mood = e.target.value; changed(); } }, MOODS.map(([v, n]) => h('option', { value: v, selected: (L.mood || 'calm') === v }, n))))),
       h('div', { class: 'two' },
         row('박자마다 쾅', h('select', { onchange: e => { L.beat = e.target.value; if (L.beat === 'auto') delete L.beat; changed(true); } }, [['auto', '스타일대로'], ['on', '켜기'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.beat || 'auto') === v }, n)))),
-        row('장면 넘김', h('select', { onchange: e => { L.trans = e.target.value; if (L.trans === 'style') delete L.trans; changed(true); } }, [['style', '스타일대로'], ['zoom', '끝없는 줌']].map(([v, n]) => h('option', { value: v, selected: (L.trans || 'style') === v }, n))))));
+        row('장면 넘김', h('select', { onchange: e => { L.trans = e.target.value; if (L.trans === 'style') delete L.trans; changed(true); } }, [['style', '스타일대로'], ['zoom', '끝없는 줌']].map(([v, n]) => h('option', { value: v, selected: (L.trans || 'style') === v }, n))))),
+      h('div', { class: 'two' },
+        row('자막', h('select', { onchange: e => { if (e.target.value === 'off') L.subs = 'off'; else delete L.subs; changed(true); } }, [['on', '켜기 (목소리 있는 장면)'], ['off', '끄기']].map(([v, n]) => h('option', { value: v, selected: (L.subs === 'off' ? 'off' : 'on') === v }, n))))));
     left.append(h('h3', { class: 'step' }, '2 · 시나리오 고치기 ', h('small', {}, '화면에 나올 글은 여기 있는 것이 전부예요')), info);
     L.scenes.forEach((sc, i) => left.append(sceneCard(sc, i)));
     left.append(addBox(L.scenes.length - 1));
@@ -324,7 +328,7 @@
     const qa = inst.QA(); inst.seek(t);
     qaBox.innerHTML = '';
     qaBox.append(qa.length ? h('div', { class: 'bad' }, h('b', {}, `⚠ 화면 점검 ${qa.length}건 — 글을 줄이거나 장면을 나눠 주세요`), h('ul', {}, qa.map(q => h('li', {}, q)))) : h('div', { class: 'good' }, `✓ 화면 점검 이상 없음 · 장면 ${inst.SCENES.length}개 · 약 ${Math.round(inst.DUR)}초`));
-    refreshGallery();
+    refreshGallery(); refreshFlow();
   }
   function fitPv() { const avail = right.clientWidth, maxW = innerHeight * 0.62 * inst.W / inst.H; pvWrap.style.width = Math.min(avail, maxW) + 'px'; const k = Math.min(avail, maxW) / inst.W; pvStage.style.transform = `scale(${k})`; pvWrap.style.height = inst.H * k + 'px'; }
   addEventListener('resize', () => { if (inst) fitPv(); refreshGallery(); });
@@ -380,6 +384,33 @@
         g.READY.then(() => g.seek(g.SCENES[0].dur - 0.55));
       } catch (e) { holder.textContent = '⚠'; }
     }
+  }
+
+  // ---------- 흐름 보기: 장면마다 그림 한 장 + 대사(자막) ----------
+  let fTimer = null;
+  function refreshFlow() { clearTimeout(fTimer); fTimer = setTimeout(drawFlow, 250); }
+  async function drawFlow() {
+    flow.innerHTML = '';
+    let acc = 0;
+    L.scenes.forEach((sc, i) => {
+      const s0 = inst && inst.SCENES[i], dur = s0 ? s0.dur : 0, at = acc; acc += dur;
+      const holder = h('div', { class: 'thumb-stage' }); const st = h('div'); holder.append(st);
+      const changedSay = sc.voiceSay != null && sc.voiceData && (sc.say || '').trim() !== (sc.voiceSay || '').trim();
+      const subs = sc.say && sc.voiceData && L.subs !== 'off' ? PC.chunkSay(sc.say) : [];
+      const card = h('div', { class: 'fcard' + (i === cur ? ' on' : '') },
+        h('button', { class: 'fpic', title: '이 장면 미리보기', onclick: () => { cur = i; markCur(); jumpTo(i); refreshGallery(); [...flow.children].forEach((c, j) => c.classList.toggle('on', j === i)); left.querySelectorAll('.s-scene')[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, holder),
+        h('div', { class: 'fmeta' }, h('b', {}, `${i + 1} · ${TYPES[sc.type]?.name || sc.type}`), h('span', {}, `${Math.floor(at / 60)}:${String(Math.floor(at % 60)).padStart(2, '0')} · ${dur.toFixed(1)}초`), h('span', { class: 'vs' }, sc.voiceData ? '🔊 목소리' : '🔇 목소리 없음')),
+        h('textarea', { rows: 3, class: 'fsay', placeholder: '대사 (목소리로 읽을 글 · 목소리가 있으면 자막으로 나와요)', oninput: e => { sc.say = e.target.value; delete sc.cues; store.set('peace-studio-draft', JSON.stringify(L)); clearTimeout(timer); timer = setTimeout(() => { renderLeft(); refresh(); }, 900); } }, sc.say || ''),
+        subs.length ? h('div', { class: 'fsubs' }, subs.map(x => h('span', {}, x))) : null,
+        changedSay ? h('div', { class: 'fwarn' }, '✎ 대사가 바뀌었어요 — 목소리는 예전 그대로예요. 시나리오를 저장해 Claude 에게 보내면 이 장면만 다시 읽혀요.') : null);
+      flow.append(card);
+      try {
+        const one = { ...clone(L), scenes: [clone(sc)] }; one.scenes[0].style = sc.style || L.style; delete one.scenes[0].voiceData; delete one.scenes[0].voiceDur;
+        const g = PC.mount(st, one);
+        const k = holder.clientWidth / g.W; st.style.transform = `scale(${k})`; holder.style.height = g.H * k + 'px';
+        g.READY.then(() => g.seek(g.SCENES[0].dur - 0.55));
+      } catch (e) { holder.textContent = '⚠'; }
+    });
   }
 
   // ---------- 저장 · 열기 ----------

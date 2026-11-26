@@ -9,10 +9,10 @@
   python3 peace.py blank  <출력.html>                 예시만 담은 빈 스튜디오 (배포용)
   python3 peace.py doctor                             이 컴퓨터에서 무엇이 되나 · mp4 에 무엇을 깔아야 하나
   python3 peace.py voice-setup                        목소리 복제(Qwen3-TTS)를 이 작업 공간에 설치(처음 한 번 · 몇 분)
-  python3 peace.py voice  <작업 폴더> --sample 샘플.m4a --sample-text "샘플에서 한 말"
+  python3 peace.py voice  <작업 폴더> --sample 샘플.m4a [--sample-text "샘플에서 한 말"]   (한 말은 없으면 받아 적는다)
                                                       장면마다 say(대본)를 선생님 목소리로 — 설치돼 있으면 이 작업 공간에서(토큰 · 외부 전송 없음),
                                                       아니면 허깅페이스 데모(--remote · HF_TOKEN 권장) — 본인 목소리만
-  python3 peace.py sync   <작업 폴더>                 목소리와 이름표 맞추기 — 사진 · 모아 보기의 이름표가 그 낱말을 말하는 순간에 나온다
+  python3 peace.py sync   <작업 폴더>                 목소리와 이름표 · 자막 맞추기 — 이름표는 그 낱말을, 자막은 그 토막을 말하는 순간에 나온다
 
 필요한 것: Python 3 표준 라이브러리만. fontTools + brotli 가 있으면 글꼴을 쓴 글자만 잘라 파일이 작아진다.
 """
@@ -107,6 +107,39 @@ def tidy_say(t):
 
 
 TAIL = ' 네.'   # 버리는 꼬리 말 — AI 는 맨 끝 글자를 끊어 버리기 쉬워서, 끊기는 자리를 이 말로 옮긴다
+
+
+def chunk_say(t, MAX=26):
+    """대사 → 자막 토막(엔진 chunkSay 와 같은 규칙): 문장 → 길면 쉼표 → 그래도 길면 띄어쓰기에서."""
+    out = []
+
+    def even(x):   # 길면 고르게 나눈다(끝에 한 낱말만 남지 않게)
+        n, res, rest = -(-len(x) // MAX), [], x
+        for k in range(n, 1, -1):
+            goal = len(rest) / k
+            sp = [i for i, ch in enumerate(rest) if ch == ' ']
+            if not sp:
+                break
+            b = min(sp, key=lambda i: abs(i - goal))
+            res.append(rest[:b]); rest = rest[b + 1:]
+        return res + [rest]
+    for se in [x.strip() for x in re.findall(r'[^.?!…]+[.?!…]*["\'”’]?', re.sub(r'\s+', ' ', t).strip()) if x.strip()]:
+        if len(se) <= MAX:
+            out.append(se); continue
+        buf = ''
+        for piece in re.split(r'(?<=,)\s*', se):
+            if len((buf + ' ' + piece).strip()) <= MAX:
+                buf = (buf + ' ' + piece).strip()
+            else:
+                if buf:
+                    out.append(buf)
+                buf = piece
+            if len(buf) > MAX:
+                ev = even(buf)
+                out.extend(ev[:-1]); buf = ev[-1]
+        if buf:
+            out.append(buf)
+    return out
 
 
 def cut_tail(w, sr):
@@ -322,8 +355,20 @@ elif cmd == 'voice':
     def val(k):
         return opt[opt.index(k) + 1] if k in opt and opt.index(k) + 1 < len(opt) else None
     sample, stext = val('--sample'), val('--sample-text')
-    if not sample or not stext:
-        sys.exit('--sample 샘플.wav --sample-text "샘플에서 한 말 그대로" 가 필요해요')
+    if not sample:
+        sys.exit('--sample 샘플(10초 녹음) 이 필요해요')
+    if not stext:   # 샘플에서 한 말을 몰라도 된다 — 받아 적는다
+        try:
+            import numpy as np
+            from faster_whisper import WhisperModel
+            pcm = subprocess.run([FF, '-v', 'error', '-i', os.path.abspath(sample), '-ac', '1', '-ar', '16000', '-f', 's16le', '-'], capture_output=True, check=True).stdout
+            segs, _ = WhisperModel('small', device='cpu', compute_type='int8').transcribe(np.frombuffer(pcm, np.int16).astype('float32') / 32768, language='ko')
+            stext = ' '.join(x.text.strip() for x in segs).strip()
+        except Exception as e:
+            sys.exit(f'샘플을 받아 적지 못했어요({str(e)[:80]}). --sample-text "샘플에서 한 말" 을 같이 주세요 (python3 peace.py voice-setup 이 받아쓰기 도구도 깔아요)')
+        if not stext:
+            sys.exit('샘플에서 말소리를 찾지 못했어요. 조용한 곳에서 10초쯤 또박또박 다시 녹음해 주세요.')
+        print(f'샘플 받아 적기: "{stext}"  (틀렸으면 --sample-text 로 바로잡을 수 있어요)')
     lp = os.path.join(work, 'lesson.json')
     L = json.loads(read(lp))
     os.makedirs(os.path.join(work, 'voice'), exist_ok=True)
@@ -366,7 +411,7 @@ elif cmd == 'voice':
                 clip = np.asarray(wavs[0], dtype='float32'); f = int(sr * 0.04); clip[-f:] *= np.linspace(1, 0, f, dtype='float32')
             sf.write(os.path.join(work, out), clip, sr)
             pad_tail(os.path.join(work, out))
-            sc['voice'] = out; sc.pop('voiceData', None); sc.pop('voiceDur', None)
+            sc['voice'] = out; sc['voiceSay'] = say; sc.pop('voiceData', None); sc.pop('voiceDur', None); sc.pop('cues', None)
             print(f'  장면 {i + 1:02d} → {out} ({audio_len(os.path.join(work, out)):.1f}초 · {time.time() - t0:.0f}초 걸림)')
             with open(lp, 'w', encoding='utf-8') as f:
                 json.dump(L, f, ensure_ascii=False, indent=2)
@@ -398,8 +443,8 @@ elif cmd == 'voice':
             sys.exit(f'장면 {i + 1}: {st}')
         shutil.copy(a, os.path.join(work, out))
         pad_tail(os.path.join(work, out))
-        sc['voice'] = out
-        sc.pop('voiceData', None); sc.pop('voiceDur', None)
+        sc['voice'] = out; sc['voiceSay'] = say
+        sc.pop('voiceData', None); sc.pop('voiceDur', None); sc.pop('cues', None)
         print(f'  장면 {i + 1:02d} → {out} ({audio_len(os.path.join(work, out)):.1f}초)')
         with open(lp, 'w', encoding='utf-8') as f:
             json.dump(L, f, ensure_ascii=False, indent=2)
@@ -418,8 +463,8 @@ elif cmd == 'sync':
     m = WhisperModel('small', device='cpu', compute_type='int8')
     norm = lambda t: re.sub(r'[^0-9A-Za-z가-힣]', '', t)
     for i, sc in enumerate(L['scenes']):
-        marks = sc.get('pins') if sc.get('type') == 'photo' else sc.get('cells') if sc.get('type') == 'gallery' else None
-        if not marks or not sc.get('voice'):
+        marks = (sc.get('pins') if sc.get('type') == 'photo' else sc.get('cells') if sc.get('type') == 'gallery' else None) or []
+        if not sc.get('voice') or not (marks or sc.get('say')):
             continue
         pcm = subprocess.run([FF, '-v', 'error', '-i', os.path.join(work, sc['voice']), '-ac', '1', '-ar', '16000', '-f', 's16le', '-'], capture_output=True, check=True).stdout
         segs, _ = m.transcribe(np.frombuffer(pcm, np.int16).astype('float32') / 32768, language='ko', word_timestamps=True, initial_prompt=sc.get('say', ''))
@@ -442,10 +487,21 @@ elif cmd == 'sync':
             at = max(last + 0.4, 0.35 + words[owner[k]].start)   # 녹음은 장면 시작 0.35초 뒤에 나온다
             q['at'] = round(at, 2); last = at; pos = k + 1
             got.append(f"{q.get('label')}@{q['at']}")
+        if sc.get('say') and words:   # 자막 토막마다 말하기 시작하는 때(대사 속 자리 비율 → 받아 적은 글 속 낱말)
+            parts, say_n = chunk_say(sc['say']), norm(sc['say'])
+            cues, off = [], 0
+            for x in parts:
+                k = min(len(flat) - 1, int(off / max(1, len(say_n)) * len(flat))) if flat else 0
+                cues.append({'t': round(0.35 + (words[owner[k]].start if flat else 0), 2), 'text': x})
+                off += len(norm(x))
+            for a, b in zip(cues, cues[1:]):
+                b['t'] = max(b['t'], a['t'] + 0.3)
+            sc['cues'] = cues
+            got.append(f'자막 {len(cues)}토막')
         print(f'  장면 {i + 1:02d}: ' + ' · '.join(got))
     with open(lp, 'w', encoding='utf-8') as f:
         json.dump(L, f, ensure_ascii=False, indent=2)
-    print('→ 이름표가 말하는 순간에 나오도록 at 을 적었어요 (못 찾은 것은 ? · 원래 차례대로)')
+    print('→ 이름표 · 자막이 말하는 순간에 나오도록 at · cues 를 적었어요 (못 찾은 이름표는 ? · 원래 차례대로)')
 
 elif cmd == 'share':
     L = load_lesson()

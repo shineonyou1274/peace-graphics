@@ -108,3 +108,17 @@ textarea { resize: vertical; }
 .scope input { width: auto; }
 .linkbtn { border: none; background: none; color: var(--s-dim); text-decoration: underline; cursor: pointer; font-size: 12px; margin-left: auto; }
 .stsel { font-weight: 700; }
+/* 흐름 보기 */
+.flow { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.fcard { background: #fff; border: 1px solid #e3e3e8; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.fcard.on { border-color: #1a73e8; box-shadow: 0 0 0 2px #1a73e855; }
+.fcard .fpic { padding: 0; border: 0; background: none; cursor: pointer; display: block; width: 100%; }
+.fcard .thumb-stage { position: relative; overflow: hidden; border-radius: 8px; width: 100%; }
+.fcard .thumb-stage > div { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.fcard .fmeta { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: #666; flex-wrap: wrap; }
+.fcard .fmeta b { color: #111; font-size: 13px; }
+.fcard .fmeta .vs { margin-left: auto; }
+.fcard .fsay { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; line-height: 1.45; border: 1px solid #ddd; border-radius: 8px; padding: 6px 8px; resize: vertical; }
+.fcard .fsubs { display: flex; flex-wrap: wrap; gap: 4px; }
+.fcard .fsubs span { background: #222; color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 4px; }
+.fcard .fwarn { font-size: 12px; color: #a15c00; background: #fff4e0; border-radius: 6px; padding: 5px 7px; }

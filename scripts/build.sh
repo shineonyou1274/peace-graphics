@@ -25,9 +25,9 @@ done
 
 # 저장소의 받기용 사본도 새로 고친다 (README 의 다운로드 링크)
 # Claude 앱의 "스킬 올리기"는 ZIP 을 받는다 — 같은 파일을 .zip 이름으로
-mkdir -p download && rm -f download/*.skill
-for f in dist/*.skill; do cp "$f" "download/$(basename "${f%.skill}").zip"; done
-echo "↪ download/ 갱신 (*.zip)"
+mkdir -p download
+for f in dist/*.skill; do cp "$f" "download/$(basename "${f%.skill}").zip"; cp "$f" "download/$(basename "$f")"; done   # .zip(앱에 올리기) · .skill(예전 링크) 둘 다
+echo "↪ download/ 갱신 (*.zip · *.skill)"
 
 # 선생님용 빈 스튜디오 (예시가 담긴 파일 하나)
 python3 skills/peace-class/scripts/peace.py blank download/수업영상스튜디오.html
